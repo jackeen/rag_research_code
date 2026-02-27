@@ -1,0 +1,10 @@
+__pycache__/
+.venv/
+temp/
+data/
+.DS_Store
+.env
+*.sqlite3
+
+
+
