@@ -2,6 +2,7 @@ __pycache__/
 .venv/
 temp/
 data/
+books/
 .DS_Store
 .env
 *.sqlite3

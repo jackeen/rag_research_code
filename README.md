@@ -16,6 +16,8 @@ python -m scripts.pdf2md_script
 - langchain
 - langgraph
 - langchain-community
+- langchain-ollama
+- langchain-openai
 - qdrant_client
 - pandas
 - openpyxl

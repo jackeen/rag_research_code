@@ -1,9 +1,15 @@
 from sentence_transformers import SentenceTransformer
 from sklearn.metrics.pairwise import cosine_similarity
+from langchain_openai import OpenAIEmbeddings
+import dotenv
 import config
 
 
+dotenv.load_dotenv()
+
+
 embedding_model = SentenceTransformer(config.TRANSFORMER_EMBEDDING_MODEL_384)
+open_ai_embedding_model = OpenAIEmbeddings(model=config.OPEN_AI_EMBEDDING_MODEL)
 
 
 # this function convert the NaN values into empty string for cosine calculation
@@ -29,4 +35,18 @@ def calculate_cosine_similarity(s1_list: list[str], s2_list: list[str]) -> list[
     return [
         round(float(cosine_similarity([s1], [s2])[0][0]), 4) for s1, s2 in zip(s1_vectors, s2_vectors)
     ]
+
+
+def calculate_max_cosine_similarities(chunks: list[str], answers: list[str]) -> list[float]:
+    """
+    For compare the M * N strings similarities
+    :param chunks:
+    :param answers:
+    :return:
+    """
+    chunks_vectors = open_ai_embedding_model.embed_documents(chunks)
+    answers_vectors = open_ai_embedding_model.embed_documents(answers)
+    similarity_matrix = cosine_similarity(chunks_vectors, answers_vectors)
+    max_cosine_similarities = similarity_matrix.max(axis=1)
+    return [round(float(v), 4) for v in max_cosine_similarities]
 

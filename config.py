@@ -22,7 +22,7 @@ OLLAMA_GRANITE_EMBEDDING_MODEL_768 = 'granite-embedding:278m'
 # OpenAI model
 OPEN_AI_MODEL = "gpt-4.1-mini"
 
-# OpenAI embedding model 1536
+# OpenAI embedding model default 1536
 OPEN_AI_EMBEDDING_MODEL = "text-embedding-3-small"
 
 # for similarity

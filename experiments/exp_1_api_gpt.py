@@ -1,3 +1,7 @@
+"""
+This experiment leverages the ChatGPT 4.1 mini and cosine similarity evaluation
+
+"""
 import os
 import pandas as pd
 from openpyxl import load_workbook
@@ -5,36 +9,14 @@ from openai import OpenAI
 from dotenv import load_dotenv
 
 import config
-from .similarity import calculate_cosine_similarity
+from tools.similarity import calculate_cosine_similarity
+from tools.excel_operator import copy_qa_sheet_as_target_sheet
+from tools.data_loader import get_excel_data_path
+from tools.summary_recorder import SummaryEntity, append_summary
 
 # init open ai client
 load_dotenv()
 client = OpenAI(api_key=os.getenv('OPENAI_API_KEY'))
-
-
-def get_file_path():
-    root_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
-    file_path = os.path.join(root_path, 'data/exp_1_api_gpt.xlsx')
-    return file_path
-
-
-def copy_qa_sheet_as_target(sheet_name):
-    excel_path = get_file_path()
-    wb = load_workbook(excel_path)
-
-    # avoid name collision
-    i = 1
-    target_name = sheet_name
-    while target_name in wb.sheetnames:
-        target_name = f'{sheet_name}_{i}'
-        i += 1
-
-    # save sheet and return actual sheet name
-    source_sheet = wb['QAs']
-    new_sheet = wb.copy_worksheet(source_sheet)
-    new_sheet.title = target_name
-    wb.save(excel_path)
-    return target_name
 
 
 def ask_open_ai(q):
@@ -46,8 +28,8 @@ def ask_open_ai(q):
     return res.output_text
 
 
-def asking_each_questions(sheet_name):
-    excel_path = get_file_path()
+def asking_each_questions(excel_name: str, sheet_name: str):
+    excel_path = get_excel_data_path(excel_name)
 
     # read and deal data
     df = pd.read_excel(excel_path, sheet_name=sheet_name)
@@ -84,10 +66,23 @@ def asking_each_questions(sheet_name):
     # use this to save for keeping style of the sheet
     wb.save(excel_path)
 
+    # record the summary
+    summary = SummaryEntity(
+        experiment_name=excel_name,
+        dataset_version='v1',
+        book_name='all',
+        filter_name='',
+        model_name=config.OPEN_AI_MODEL,
+        db_collection_name='',
+        question_number=len(answers),
+    )
+    append_summary(summary, similarity_list)
+
 
 if __name__ == '__main__':
-    target_sheet = copy_qa_sheet_as_target('exp_1_API_GPT')
-    asking_each_questions(target_sheet)
+    data_file_name = 'exp_1_api_gpt'
+    target_sheet = copy_qa_sheet_as_target_sheet(data_file_name, 'all_book')
+    asking_each_questions(data_file_name, target_sheet)
 
 
 
