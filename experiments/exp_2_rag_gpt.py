@@ -89,8 +89,11 @@ def asking_agent(c_name: str, data_file_name: str, sheet_name: str, book_name: s
     df = pd.read_excel(target_excel_path, sheet_name=target_sheet_name)
     question_col = df['three_asking_ways']
 
+    question_number_per_book = 30
+    start_index = book_index * question_number_per_book
+
     # each book 30 questions
-    question_slice = question_col.iloc[book_index*30: book_index*30 + 30]
+    question_slice = question_col.iloc[start_index: start_index + question_number_per_book]
 
     # get answers from the RAG system
     agent = Agent(c_name)
@@ -100,12 +103,12 @@ def asking_agent(c_name: str, data_file_name: str, sheet_name: str, book_name: s
         answers.append(agent.invoke(question))
 
     # evaluation
-    std_answers = df['standard_answers'].ffill().tolist()[book_index*30: book_index*30 + 30]
+    std_answers = df['standard_answers'].ffill().tolist()[start_index: start_index + question_number_per_book]
     similarities = calculate_cosine_similarity(answers, std_answers)
 
     # write the results into the target file
-    write_target_sheet_column_cells(data_file_name, target_sheet_name, 'answers', answers, book_index*30)
-    write_target_sheet_column_cells(data_file_name, target_sheet_name, 'similarities', similarities, book_index*30)
+    write_target_sheet_column_cells(data_file_name, target_sheet_name, 'answers', answers, start_index)
+    write_target_sheet_column_cells(data_file_name, target_sheet_name, 'similarities', similarities, start_index)
 
     # record the summary
     summary = SummaryEntity(
