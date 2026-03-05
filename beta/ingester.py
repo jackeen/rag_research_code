@@ -56,10 +56,17 @@ def chunk_documents_from_file_path(file_path: str) -> list[Document]:
     return split_docs
 
 
-def ingest_pdf(file_path: str, collection_name: str):
+def ingest_pdf(file_path: str, collection_name: str) -> int:
+    """
+    Ingest a pdf file
+    :param file_path: the path of the file to ingest
+    :param collection_name: the name of the collection in vector database
+    :return: the number of documents that were successfully ingested
+    """
     qdrant_store = get_qdrant_store(collection_name)
     docs = chunk_documents_from_file_path(file_path)
     qdrant_store.add_documents(docs)
+    return len(docs)
 
 
 def ingest_pdf_with_threshold_filter(
@@ -67,7 +74,15 @@ def ingest_pdf_with_threshold_filter(
         collection_name: str,
         std_answers: list[str],
         threshold: float = 0.6,
-):
+) -> int:
+    """
+    Ingest a pdf file and filter the documents by cosine similarity threshold that were successfully ingested
+    :param file_path:
+    :param collection_name:
+    :param std_answers:
+    :param threshold:
+    :return: the number of documents that were successfully ingested
+    """
     qdrant_store = get_qdrant_store(collection_name)
     docs = chunk_documents_from_file_path(file_path)
     chunks = [doc.page_content for doc in docs]
@@ -78,5 +93,5 @@ def ingest_pdf_with_threshold_filter(
         if max_sim >= threshold:
             filtered_docs.append(doc)
     qdrant_store.add_documents(filtered_docs)
-
+    return len(filtered_docs)
 
