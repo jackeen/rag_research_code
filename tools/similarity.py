@@ -2,14 +2,14 @@ from sentence_transformers import SentenceTransformer
 from sklearn.metrics.pairwise import cosine_similarity
 from langchain_openai import OpenAIEmbeddings
 import dotenv
-import config
+import sys_config
 
 
 dotenv.load_dotenv()
 
 
-embedding_model = SentenceTransformer(config.TRANSFORMER_EMBEDDING_MODEL_384)
-open_ai_embedding_model = OpenAIEmbeddings(model=config.OPEN_AI_EMBEDDING_MODEL)
+embedding_model = SentenceTransformer(sys_config.TRANSFORMER_EMBEDDING_MODEL_384)
+open_ai_embedding_model = OpenAIEmbeddings(model=sys_config.OPEN_AI_EMBEDDING_MODEL)
 
 
 # this function convert the NaN values into empty string for cosine calculation
