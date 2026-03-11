@@ -5,7 +5,7 @@ from langgraph.graph import StateGraph, END
 from langchain_core.prompts import ChatPromptTemplate, SystemMessagePromptTemplate, HumanMessagePromptTemplate
 from typing import List, TypedDict
 from qdrant_client import QdrantClient
-import config
+import sys_config
 
 from langchain_core.globals import set_debug
 set_debug(True)
@@ -21,14 +21,14 @@ class AgentState(TypedDict):
 # init resources
 # embeddings = HuggingFaceEmbeddings(model_name=config.EMBEDDING_MODEL_384)
 embeddings = OllamaEmbeddings(
-    model=config.OLLAMA_GRANITE_EMBEDDING_MODEL_768,
-    base_url=config.OLLAMA_URL_BASE
+    model=sys_config.OLLAMA_GRANITE_EMBEDDING_MODEL_768,
+    base_url=sys_config.OLLAMA_URL_BASE
 )
-qdrant_client = QdrantClient(host=config.QDRANT_HOST, port=config.QDRANT_PORT)
+qdrant_client = QdrantClient(host=sys_config.QDRANT_HOST, port=sys_config.QDRANT_PORT)
 
 vector_store = QdrantVectorStore(
     client=qdrant_client,
-    collection_name=config.QDRANT_COLLECTION_NAME,
+    collection_name=sys_config.QDRANT_COLLECTION_NAME,
     embedding=embeddings,
 )
 retriever = vector_store.as_retriever(search_kwargs={"k": 3}, score_threshold=0.8)
@@ -42,8 +42,8 @@ def retriever_node(state: AgentState) -> AgentState:
 
 
 llm = ChatOllama(
-    base_url=config.OLLAMA_URL_BASE,
-    model=config.OLLAMA_GRANITE_MODEL,
+    base_url=sys_config.OLLAMA_URL_BASE,
+    model=sys_config.OLLAMA_GRANITE_MODEL,
     validate_model_on_init=True,
     reasoning=False,
     temperature=0,

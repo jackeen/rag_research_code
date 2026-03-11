@@ -10,15 +10,15 @@ from langchain_ollama import OllamaEmbeddings
 from langchain_qdrant import QdrantVectorStore
 from qdrant_client import QdrantClient
 
-import config
+import sys_config
 
 
 def ingest_pdf(file_path, collection_name):
     embeddings = OllamaEmbeddings(
-        model=config.OLLAMA_GRANITE_EMBEDDING_MODEL_768,
-        base_url=config.OLLAMA_URL_BASE
+        model=sys_config.OLLAMA_GRANITE_EMBEDDING_MODEL_768,
+        base_url=sys_config.OLLAMA_URL_BASE
     )
-    qdrant_client = QdrantClient(host=config.QDRANT_HOST, port=config.QDRANT_PORT)
+    qdrant_client = QdrantClient(host=sys_config.QDRANT_HOST, port=sys_config.QDRANT_PORT)
     qdrant_store = QdrantVectorStore(
         client=qdrant_client,
         collection_name=collection_name,

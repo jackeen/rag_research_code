@@ -5,7 +5,8 @@ from langchain_core.prompts import ChatPromptTemplate, SystemMessagePromptTempla
 from typing import List, TypedDict
 from qdrant_client import QdrantClient
 import dotenv
-import config
+import sys_config
+from .config import AgentConfig, CustomerMetadata
 
 # from langchain_core.globals import set_debug
 # set_debug(True)
@@ -14,14 +15,15 @@ import config
 dotenv.load_dotenv()
 
 
-#
 class AgentState(TypedDict):
     query: str
     context: List[str]
+    retrieved_contents: List[str]
+    retrieved_contents_reference: List[str]
     response: str
 
 
-def prompt_generate() -> str:
+def prompt_generate() -> ChatPromptTemplate:
     """
 
     :return:
@@ -45,7 +47,7 @@ def prompt_generate() -> str:
     return prompt
 
 
-def prompt_generate_2() -> str:
+def prompt_generate_v2() -> ChatPromptTemplate:
     """
 
     :return:
@@ -78,40 +80,53 @@ def prompt_generate_2() -> str:
 class Agent:
     """
     The agent class provides methods to interact with the Local RAG system
-    powered by local Qdrant database and OpenAI api.
+    powered by Qdrant database and LLMs.
+
+    Init:
     """
 
-    def __init__(self, c_name: str):
+    def __init__(self, config: AgentConfig):
         """
         Init the agent by given collection name of the vector database.
         :param c_name: collection name of the vector database
         """
-        self.c_name = c_name
+        self.config = config
 
         # init resources
-        embeddings = OpenAIEmbeddings(model=config.OPEN_AI_EMBEDDING_MODEL)
-        qdrant_client = QdrantClient(host=config.QDRANT_HOST, port=config.QDRANT_PORT)
+        embeddings = OpenAIEmbeddings(model=sys_config.OPEN_AI_EMBEDDING_MODEL)
+        qdrant_client = QdrantClient(host=sys_config.QDRANT_HOST, port=sys_config.QDRANT_PORT)
         vector_store = QdrantVectorStore(
             client=qdrant_client,
-            collection_name=c_name,
+            collection_name=config.collection_name,
             embedding=embeddings,
         )
+
+        # the default settings of retrieving
+        # the default configure not includes similarity, just return top 4 docs
         retriever = vector_store.as_retriever(
-            # search_kwargs={"k": 3},
-            # score_threshold=0.7,
+            # search_kwargs={"k": 4, "score_threshold": 0.0},
+            # search_type="similarity_score_threshold"
         )
         llm = ChatOpenAI(
-            model=config.OPEN_AI_MODEL,
+            model=sys_config.OPEN_AI_MODEL,
             temperature=0,
         )
+
+        # This is the langgraph compiled agent
         self.agent = None
         self.llm = llm
         self.retriever = retriever
+        self.db_client = qdrant_client
+        self.docs_count = qdrant_client.count(
+            collection_name=config.collection_name,
+            exact=True
+        )
+        self.compile_agent()
 
     def generator_node(self, state: AgentState) -> AgentState:
         # the two version of prompt
         # prompt = prompt_generate()
-        prompt = prompt_generate_2()
+        prompt = prompt_generate_v2()
         formatted_prompt = prompt.format_prompt(
             context=state["context"],
             question=state["query"],
@@ -124,8 +139,15 @@ class Agent:
 
     def retriever_node(self, state: AgentState) -> AgentState:
         query = state["query"]
-        retrieved_chunks = self.retriever.invoke(query)
-        state["context"] = [doc.page_content for doc in retrieved_chunks]
+        retrieved_docs = self.retriever.invoke(query)
+        retrieved_contents = []
+        retrieved_content_reference = []
+        for doc in retrieved_docs:
+            retrieved_contents.append(doc.page_content)
+            retrieved_content_reference.append(doc.metadata.get(CustomerMetadata.CHUNK_REFERENCE_NAME.value))
+        state["context"] = retrieved_contents
+        state["retrieved_contents"] = retrieved_contents
+        state["retrieved_contents_reference"] = retrieved_content_reference
         return state
 
     def compile_agent(self):
@@ -142,14 +164,30 @@ class Agent:
             "query": query,
             "context": "",
             "response": "",
+            "retrieved_contents": [],
+            "retrieved_contents_reference": [],
         })
         return ret["response"]
+
+    def invoke_with_retrieved_contents(self, query: str) -> dict:
+        ret = self.agent.invoke({
+            "query": query,
+            "context": "",
+            "response": "",
+            "retrieved_contents": [],
+            "retrieved_contents_reference": [],
+        })
+        return {
+            "response": ret["response"],
+            "retrieved_contents": ret["retrieved_contents"],
+            "retrieved_contents_reference": ret["retrieved_contents_reference"],
+        }
 
 
 # model testing
 if __name__ == '__main__':
-    agent = Agent('rag_gpt')
-    agent.compile_agent()
+    agent_config = AgentConfig(collection_name='test')
+    agent = Agent(agent_config)
     # result = agent.invoke('What does LAMP stand for? ')
     result = agent.invoke('What is LLM in AI? ')
     print(result)
