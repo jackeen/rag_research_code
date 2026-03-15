@@ -1,12 +1,15 @@
 """
 This experiment leverages the local RAG system powered by ChatGPT 4.1 mini model.
 Its evaluation depends on cosine similarity.
+
+This is the branch experiment based exp 2 evl fix, which uses the same embedding model for evaluation.
+It used chunk size 500
 """
 import pandas as pd
 import sys_config
 from tools.data_loader import get_book_path, BookNames, get_excel_data_path, References
 from tools.excel_operator import copy_qa_sheet_as_target_sheet, write_target_sheet_column_cells
-from tools.similarity import calculate_cosine_similarity
+from tools.similarity import calculate_cosine_similarity_openai_embedding
 from tools.summary_recorder import SummaryEntity, append_summary
 from beta.ingestor import Ingestor
 from beta.agent import Agent
@@ -22,7 +25,7 @@ def ingest_full_data(ingestor: Ingestor, book_file_name: str, book_ref: str):
     :return: the number of documents that ingested in database
     """
     # renew_collection(c_name)
-    ingestor.force_create_collection()
+    # ingestor.force_create_collection()
     book_file_path = str(get_book_path(book_file_name))
     doc_n = ingestor.ingest_pdf(book_file_path, book_ref)
     c_name = ingestor.config.collection_name
@@ -80,7 +83,7 @@ def asking_agent(agent: Agent, data_file_name: str, sheet_name: str, book_name: 
 
     # evaluation
     std_answers = df['standard_answers'].ffill().tolist()[start_index: start_index + question_number_per_book]
-    similarities = calculate_cosine_similarity(answers, std_answers)
+    similarities = calculate_cosine_similarity_openai_embedding(answers, std_answers)
 
     # write the results into the target file
     write_target_sheet_column_cells(data_file_name, target_sheet_name, 'answers', answers, start_index)
@@ -111,32 +114,35 @@ def run(book_i, book_name, book_file_name, threshold_for_filter=0.6):
     """
     # init collections
     collection_name = 'rag_gpt'
-    filtered_collection_name = 'rag_gpt_filtered'
+    # filtered_collection_name = 'rag_gpt_filtered'
 
     # these are output detail, questions and answers where is stored, they are also the sheet name in the summary
-    data_file_name = 'exp_2_rag_gpt'
-    data_file_name_filter = f'exp_2_rag_gpt_filter_{int(threshold_for_filter*100)}'
+    data_file_name = 'exp_2_rag_gpt_chunk_500'
+    # data_file_name_filter = f'exp_2_rag_gpt_filter_{int(threshold_for_filter*100)}'
 
     # this is for name used in database and sheet, which is more clear
     book_file_name_sign = book_file_name.replace('.', '_')
 
     collection_name = f'{collection_name}_{book_file_name_sign}'
-    filtered_collection_name = f'{filtered_collection_name}_{book_file_name_sign}'
+    # filtered_collection_name = f'{filtered_collection_name}_{book_file_name_sign}'
 
     # the agent config for normal test
-    agent_config = AgentConfig(collection_name=collection_name)
+    agent_config = AgentConfig(
+        collection_name=collection_name,
+        chunk_size=500
+    )
     AgentConfigChoseModel.chose_openai_llm_model(agent_config)
     AgentConfigChoseModel.chose_openai_embedding(agent_config)
 
     # the agent config for filter test
-    filtered_agent_config = AgentConfig(
-        collection_name=filtered_collection_name,
-        is_use_filter=True,
-        filter=FilterName.COSINE_SIMILARITY_THRESHOLD,
-        ingestion_similarity_filter_threshold=threshold_for_filter,
-    )
-    AgentConfigChoseModel.chose_openai_llm_model(filtered_agent_config)
-    AgentConfigChoseModel.chose_openai_embedding(filtered_agent_config)
+    # filtered_agent_config = AgentConfig(
+    #     collection_name=filtered_collection_name,
+    #     is_use_filter=True,
+    #     filter=FilterName.COSINE_SIMILARITY_THRESHOLD,
+    #     ingestion_similarity_filter_threshold=threshold_for_filter,
+    # )
+    # AgentConfigChoseModel.chose_openai_llm_model(filtered_agent_config)
+    # AgentConfigChoseModel.chose_openai_embedding(filtered_agent_config)
 
     # Prepare current book reference for ingestion workflow
     book_ref = References[book_name].value
@@ -144,10 +150,11 @@ def run(book_i, book_name, book_file_name, threshold_for_filter=0.6):
     # normal ingestor
     ingestor = Ingestor(agent_config)
     ingestor.use_openai_embeddings()
+    ingestor.force_create_collection()
 
     # filter ingestor
-    ingestor_with_filter = Ingestor(filtered_agent_config)
-    ingestor_with_filter.use_openai_embeddings()
+    # ingestor_with_filter = Ingestor(filtered_agent_config)
+    # ingestor_with_filter.use_openai_embeddings()
 
     # agent with normal data collection
     agent = Agent(agent_config)
@@ -156,18 +163,18 @@ def run(book_i, book_name, book_file_name, threshold_for_filter=0.6):
     agent.generate_work_flow()
 
     # agent with filtered data collection
-    agent_with_filter = Agent(filtered_agent_config)
-    agent_with_filter.use_openai_llm()
-    agent_with_filter.use_openai_embeddings()
-    agent_with_filter.generate_work_flow()
+    # agent_with_filter = Agent(filtered_agent_config)
+    # agent_with_filter.use_openai_llm()
+    # agent_with_filter.use_openai_embeddings()
+    # agent_with_filter.generate_work_flow()
 
     # prepare the vector database for current book
     ingest_full_data(ingestor, book_file_name, book_ref)
-    ingest_filtered_data(ingestor_with_filter, book_file_name, data_file_name_filter, book_ref)
+    # ingest_filtered_data(ingestor_with_filter, book_file_name, data_file_name_filter, book_ref)
 
     # asking system
     asking_agent(agent, data_file_name, book_file_name_sign, book_name, book_i)
-    asking_agent(agent_with_filter, data_file_name_filter, book_file_name_sign, book_name, book_i)
+    # asking_agent(agent_with_filter, data_file_name_filter, book_file_name_sign, book_name, book_i)
 
 
 def bach_run(filter_threshold: float):
@@ -175,20 +182,5 @@ def bach_run(filter_threshold: float):
         run(i, book.name, book.value, filter_threshold)
 
 
-def test_book_enumerating():
-    target_excel_path = str(get_excel_data_path('exp_2_rag_gpt'))
-    df = pd.read_excel(target_excel_path, sheet_name='QAs')
-    question_col = df['three_asking_ways']
-
-    offset = 30
-    for i, book in enumerate(BookNames):
-        df_slice = question_col.iloc[i*30: i*30 + 30]
-        print(i, book.name, book.value)
-        print(df_slice)
-        print('-----------------\n')
-
-
 if __name__ == '__main__':
-    # bach_run(0.73)
     bach_run(0.6)
-    # test_book_enumerating()

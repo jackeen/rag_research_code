@@ -8,15 +8,6 @@ from marker.output import text_from_rendered
 
 from pathlib import Path
 
-# import config
-
-# optional llm service
-# from marker.services.ollama import OllamaService
-# llm_service = OllamaService(
-#     model=config.OLLAMA_GRANITE_MODEL,
-#     base_url=config.OLLAMA_URL_BASE
-# )
-
 artifact_dict = create_model_dict()
 config_dict = {
     "output_format": "markdown",

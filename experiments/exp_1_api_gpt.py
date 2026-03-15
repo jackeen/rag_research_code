@@ -8,7 +8,7 @@ from openpyxl import load_workbook
 from openai import OpenAI
 from dotenv import load_dotenv
 
-import config
+import sys_config
 from tools.similarity import calculate_cosine_similarity
 from tools.excel_operator import copy_qa_sheet_as_target_sheet
 from tools.data_loader import get_excel_data_path

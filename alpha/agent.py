@@ -43,7 +43,7 @@ def retriever_node(state: AgentState) -> AgentState:
 
 llm = ChatOllama(
     base_url=sys_config.OLLAMA_URL_BASE,
-    model=sys_config.OLLAMA_GRANITE_MODEL,
+    model=sys_config.OLLAMA_GRANITE_MODEL_3_3_8B,
     validate_model_on_init=True,
     reasoning=False,
     temperature=0,

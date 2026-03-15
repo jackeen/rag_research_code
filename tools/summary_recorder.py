@@ -1,9 +1,9 @@
 """
-
+The IO of the result of the experiments.
+It appends the results into the Excel file.
 """
 from datetime import datetime
 import numpy as np
-import pandas as pd
 from openpyxl import load_workbook
 from dataclasses import dataclass, fields
 from .excel_operator import get_excel_data_path
@@ -13,13 +13,31 @@ from .excel_operator import get_excel_data_path
 class SummaryEntity:
     experiment_name: str
     dataset_version: str
-    book_name: str
-    filter_name: str
-    model_name: str
+    ingest_file_name: str
+
     db_collection_name: str
     question_number: int
+
+    model_name: str
+    hybrid_retrieving: bool = False
+    dense_embedding_model_name: str = ''
+    sparse_embedding_model_name: str = ''
+
+    filter_name: str = ''
+    filter_version: str = ''
+    filter_params: str = ''
+
+    chunking_size: int = 100
+    chunking_overlap: int = 0
+
     average_similarity: float = 0.0
     median_similarity: float = 0.0
+    average_bert_score: float = 0.0
+    median_bert_score: float = 0.0
+    nli_cls_contradiction_percentage: float = 0.0
+    nli_cls_entailment_percentage: float = 0.0
+    nli_cls_neutral_percentage: float = 0.0
+
     experiment_time: str | None = None
 
 
@@ -52,7 +70,7 @@ def test_append_summary():
     summary = SummaryEntity(
         experiment_name='exp_1_api_gpt',
         dataset_version='v1',
-        book_name='all',
+        ingest_file_name='all',
         filter_name='None',
         model_name='None',
         db_collection_name='None',
@@ -62,4 +80,5 @@ def test_append_summary():
 
 
 if __name__ == '__main__':
-    test_append_summary()
+    # test_append_summary()
+    pass

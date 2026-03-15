@@ -28,14 +28,29 @@ class FilterName(Enum):
     COSINE_SIMILARITY_THRESHOLD = 'threshold'
 
 
+class VectorNames(Enum):
+    """
+    The vector names for collection of database under hybrid searching.
+    """
+    DENSE = 'text_dense_vector'
+    SPARSE = 'text_sparse_vector'
+
+
 @dataclass
 class AgentConfig:
     """
     The configuration for the agent, it includes the default values following the previous research.
     The future experiments can change
     """
+
+    # the agent name
     name: str = 'beta'
+
+    # the system used collection stored in the database
     collection_name: str = 'default'
+
+    # vector database setting
+    is_hybrid_search: bool = False
 
     # retrieve
     retrieve_top_k: int = 4
@@ -43,19 +58,49 @@ class AgentConfig:
 
     # embedding
     # the dimensions of embedding model from OpenAI are flexible
-    embedding_model: str = sys_config.OPEN_AI_EMBEDDING_MODEL
-    embedding_dimensions: int = 1536
+    embedding_model: str = ''
+    embedding_dimensions: int = 0
+    sparse_embedding_model: str = sys_config.SPARES_PP_EN_v2
     chunk_size: int = 100
     chunk_overlap: int = 0
 
-    # db search
+    # generation
+    llm_model: str = ''
 
-
-    # filter
+    # ingestion filter
     is_use_filter: bool = False
     filter: FilterName = None
     ingestion_filter_name: str = ''
     ingestion_similarity_filter_threshold: float = 0.6
+
+
+class AgentConfigChoseModel:
+    @staticmethod
+    def chose_openai_llm_model(config: AgentConfig):
+        config.llm_model = sys_config.OPEN_AI_MODEL
+
+    @staticmethod
+    def chose_ollama_llm_model(config: AgentConfig, model_name: str):
+        config.llm_model = model_name
+
+    @staticmethod
+    def chose_transformer_llm_model(config: AgentConfig, model_name: str):
+        config.llm_model = model_name
+
+    @staticmethod
+    def chose_openai_embedding(config: AgentConfig):
+        config.embedding_model = sys_config.OPEN_AI_EMBEDDING_MODEL
+        config.embedding_dimensions = sys_config.OPEN_AI_EMBEDDING_DEFAULT_DIMENSIONS
+
+    @staticmethod
+    def chose_ollama_embedding(config: AgentConfig, model_name: str, dimensions: int):
+        config.embedding_model = model_name
+        config.embedding_dimensions = dimensions
+
+    @staticmethod
+    def chose_transformer_embedding(config: AgentConfig, model_name: str, dimensions: int):
+        config.embedding_model = model_name
+        config.embedding_dimensions = dimensions
 
 
 if __name__ == '__main__':

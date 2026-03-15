@@ -1,18 +1,22 @@
-from langchain_qdrant import QdrantVectorStore
+from langchain_core.retrievers import BaseRetriever
+from langchain_qdrant import QdrantVectorStore, RetrievalMode, FastEmbedSparse
+from langchain_core.language_models import BaseChatModel
+from langchain_core.embeddings import Embeddings
 from langchain_openai import ChatOpenAI, OpenAIEmbeddings
+from langchain_ollama import ChatOllama, OllamaEmbeddings
+from langchain_huggingface import ChatHuggingFace, HuggingFaceEmbeddings
 from langgraph.graph import StateGraph, END
 from langchain_core.prompts import ChatPromptTemplate, SystemMessagePromptTemplate, HumanMessagePromptTemplate
 from typing import List, TypedDict
+from langgraph.graph.state import CompiledStateGraph
 from qdrant_client import QdrantClient
 import dotenv
 import sys_config
-from .config import AgentConfig, CustomerMetadata
+from .config import AgentConfig, CustomerMetadata, RetrieveType, VectorNames, AgentConfigChoseModel
+
 
 # from langchain_core.globals import set_debug
 # set_debug(True)
-
-
-dotenv.load_dotenv()
 
 
 class AgentState(TypedDict):
@@ -85,43 +89,115 @@ class Agent:
     Init:
     """
 
+    config: AgentConfig
+    qdrant_client: QdrantClient
+    llm: BaseChatModel
+    embeddings: Embeddings
+    sparse_embeddings: FastEmbedSparse
+    vector_store: QdrantVectorStore
+    retriever: BaseRetriever
+    docs_count: int
+
+    # It is the agent compiled by LangGraph
+    graph_agent: CompiledStateGraph
+
     def __init__(self, config: AgentConfig):
         """
         Init the agent by given collection name of the vector database.
-        :param c_name: collection name of the vector database
+        :param config: the config of the agent shared with ingestor
         """
         self.config = config
 
-        # init resources
-        embeddings = OpenAIEmbeddings(model=sys_config.OPEN_AI_EMBEDDING_MODEL)
-        qdrant_client = QdrantClient(host=sys_config.QDRANT_HOST, port=sys_config.QDRANT_PORT)
-        vector_store = QdrantVectorStore(
-            client=qdrant_client,
-            collection_name=config.collection_name,
-            embedding=embeddings,
-        )
+        # This is for hybrid search
+        sparse_embeddings = FastEmbedSparse(model=self.config.sparse_embedding_model)
+        self.sparse_embeddings = sparse_embeddings
 
-        # the default settings of retrieving
-        # the default configure not includes similarity, just return top 4 docs
-        retriever = vector_store.as_retriever(
-            # search_kwargs={"k": 4, "score_threshold": 0.0},
-            # search_type="similarity_score_threshold"
-        )
-        llm = ChatOpenAI(
+        # To connect the qdrant for langchain store,
+        # the docs count for possible valuation
+        qdrant_client = QdrantClient(host=sys_config.QDRANT_HOST, port=sys_config.QDRANT_PORT)
+        self.docs_count = qdrant_client.count(
+            collection_name=config.collection_name,
+            exact=True
+        ).count
+        self.qdrant_client = qdrant_client
+
+    def use_openai_llm(self):
+        dotenv.load_dotenv()
+        self.llm = ChatOpenAI(
             model=sys_config.OPEN_AI_MODEL,
             temperature=0,
         )
 
-        # This is the langgraph compiled agent
-        self.agent = None
-        self.llm = llm
-        self.retriever = retriever
-        self.db_client = qdrant_client
-        self.docs_count = qdrant_client.count(
-            collection_name=config.collection_name,
-            exact=True
+    def use_openai_embeddings(self):
+        dotenv.load_dotenv()
+        self.embeddings = OpenAIEmbeddings(
+            model=self.config.embedding_model,
+            dimensions=self.config.embedding_dimensions
         )
-        self.compile_agent()
+
+    def use_ollama_llm(self):
+        self.llm = ChatOllama(
+            base_url=sys_config.OLLAMA_URL_BASE,
+            model=self.config.llm_model,
+            temperature=0,
+            reasoning=False,
+        )
+
+    def use_ollama_embeddings(self):
+        self.embeddings = OllamaEmbeddings(
+            base_url=sys_config.OLLAMA_URL_BASE,
+            model=self.config.embedding_model,
+        )
+
+    def use_transformer_embeddings(self):
+        self.embeddings = HuggingFaceEmbeddings(
+            model_name=self.config.embedding_model,
+        )
+
+    def generate_work_flow(self):
+        # this part as same as the config of ingestion
+        # the hybrid search will cause RRF(Reciprocal Rank Fusion)
+        if self.config.is_hybrid_search:
+            self.vector_store = QdrantVectorStore(
+                retrieval_mode=RetrievalMode.HYBRID,
+                client=self.qdrant_client,
+                collection_name=self.config.collection_name,
+                embedding=self.embeddings,
+                sparse_embedding=self.sparse_embeddings,
+                vector_name=VectorNames.DENSE.value,
+                sparse_vector_name=VectorNames.SPARSE.value,
+            )
+        else:
+            self.vector_store = QdrantVectorStore(
+                client=self.qdrant_client,
+                collection_name=self.config.collection_name,
+                embedding=self.embeddings,
+            )
+
+        # the default settings of retriever
+        # the default configure not includes similarity, just return top 4 docs
+        retriever = self.vector_store.as_retriever(
+            # search_type=RetrieveType.SIMILARITY.value,
+            # search_kwargs={"k": 4, "score_threshold": 0.0},
+
+            # MMR: Maximal Marginal Relevance
+            # If the chunks include same information, using it for more diversity
+            # search_type=RetrieveType.MMR.value,
+            # search_kwargs={
+            #     "k": 4,
+            #     "fetch_k": 20,
+            #     "lambda_mult": 0.5
+            # }
+        )
+        self.retriever = retriever
+
+        workflow = StateGraph(AgentState)
+        workflow.add_node("retriever", self.retriever_node)
+        workflow.add_node("generator", self.generator_node)
+        workflow.add_edge("retriever", "generator")
+        workflow.add_edge("generator", END)
+        workflow.set_entry_point("retriever")
+        self.graph_agent = workflow.compile()
 
     def generator_node(self, state: AgentState) -> AgentState:
         # the two version of prompt
@@ -150,17 +226,8 @@ class Agent:
         state["retrieved_contents_reference"] = retrieved_content_reference
         return state
 
-    def compile_agent(self):
-        workflow = StateGraph(AgentState)
-        workflow.add_node("retriever", self.retriever_node)
-        workflow.add_node("generator", self.generator_node)
-        workflow.add_edge("retriever", "generator")
-        workflow.add_edge("generator", END)
-        workflow.set_entry_point("retriever")
-        self.agent = workflow.compile()
-
     def invoke(self, query: str) -> str:
-        ret = self.agent.invoke({
+        ret = self.graph_agent.invoke({
             "query": query,
             "context": "",
             "response": "",
@@ -169,35 +236,20 @@ class Agent:
         })
         return ret["response"]
 
-    def invoke_with_retrieved_contents(self, query: str) -> dict:
-        ret = self.agent.invoke({
+    def invoke_with_retrieved_contents(self, query: str) -> (str, list[str], list[str]):
+        ret = self.graph_agent.invoke({
             "query": query,
             "context": "",
             "response": "",
             "retrieved_contents": [],
             "retrieved_contents_reference": [],
         })
-        return {
-            "response": ret["response"],
-            "retrieved_contents": ret["retrieved_contents"],
-            "retrieved_contents_reference": ret["retrieved_contents_reference"],
-        }
+        return (
+            ret["response"],
+            ret["retrieved_contents"],
+            ret["retrieved_contents_reference"],
+        )
 
 
-# model testing
 if __name__ == '__main__':
-    agent_config = AgentConfig(collection_name='test')
-    agent = Agent(agent_config)
-    # result = agent.invoke('What does LAMP stand for? ')
-    result = agent.invoke('What is LLM in AI? ')
-    print(result)
-
-
-
-
-
-
-
-
-
-
+    pass

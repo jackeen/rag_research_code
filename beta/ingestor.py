@@ -2,14 +2,17 @@ import re
 from langchain_community.document_loaders import PyMuPDFLoader
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_core.documents import Document
+from langchain_core.embeddings import Embeddings
 from langchain_openai import OpenAIEmbeddings
-from langchain_qdrant import QdrantVectorStore
+from langchain_ollama import OllamaEmbeddings
+from langchain_huggingface import HuggingFaceEmbeddings
+from langchain_qdrant import QdrantVectorStore, FastEmbedSparse, RetrievalMode
 from qdrant_client import QdrantClient
-from qdrant_client.models import VectorParams, Distance, SparseVector, SparseVectorParams
+from qdrant_client.models import VectorParams, Distance, SparseVectorParams, SparseIndexParams
 import dotenv
 import sys_config
 from tools import similarity
-from .config import AgentConfig, CustomerMetadata
+from .config import AgentConfig, CustomerMetadata, VectorNames, AgentConfigChoseModel
 
 
 class Ingestor:
@@ -17,34 +20,70 @@ class Ingestor:
     The tool designed to split the files into the documents.
     """
 
-    embeddings: OpenAIEmbeddings = None
-    qdrant_client: QdrantClient = None
-    qdrant_store: QdrantVectorStore = None
+    embeddings: Embeddings
+    sparse_embeddings: FastEmbedSparse
+    qdrant_client: QdrantClient
 
     def __init__(self, config: AgentConfig):
         self.config = config
-        dotenv.load_dotenv()
 
-        embeddings = OpenAIEmbeddings(model=self.config.embedding_model, dimensions=self.config.embedding_dimensions)
-        qdrant_client = QdrantClient(host=sys_config.QDRANT_HOST, port=sys_config.QDRANT_PORT)
-        self.qdrant_client = qdrant_client
-        self.embeddings = embeddings
+        # The hybrid mode needs it, the default model is Qdrant bm25 in this class if not set anything
+        self.sparse_embeddings = FastEmbedSparse(model=self.config.sparse_embedding_model)
+
+        # For collection operation and langchain document store interface
+        self.qdrant_client = QdrantClient(host=sys_config.QDRANT_HOST, port=sys_config.QDRANT_PORT)
+
+    def use_openai_embeddings(self):
+        dotenv.load_dotenv()
+        self.embeddings = OpenAIEmbeddings(
+            model=self.config.embedding_model,
+            dimensions=self.config.embedding_dimensions
+        )
+
+    def use_ollama_embeddings(self):
+        self.embeddings = OllamaEmbeddings(
+            base_url=sys_config.OLLAMA_URL_BASE,
+            model=self.config.embedding_model,
+        )
+
+    def use_transformer_embeddings(self):
+        self.embeddings = HuggingFaceEmbeddings(
+            model_name=self.config.embedding_model,
+        )
 
     def create_collection(self):
+        """
+        To create a collection in the vector database following the config.
+        The creation of the collection is done by Qdrant client, and the Qdrant supports similarity and hybrid search.
+        :return:
+        """
         if not self.qdrant_client.collection_exists(self.config.collection_name):
-            self.qdrant_client.create_collection(
-                collection_name=self.config.collection_name,
-                vectors_config=VectorParams(
-                    size=self.config.embedding_dimensions,
-                    distance=Distance.COSINE
+            if self.config.is_hybrid_search:
+                # https://qdrant.tech/documentation/concepts/hybrid-queries/
+                self.qdrant_client.create_collection(
+                    collection_name=self.config.collection_name,
+                    vectors_config={
+                        VectorNames.DENSE.value: VectorParams(
+                            size=self.config.embedding_dimensions,
+                            distance=Distance.COSINE,
+                        )
+                    },
+                    sparse_vectors_config={
+                        VectorNames.SPARSE.value: SparseVectorParams(
+                            index=SparseIndexParams(
+                                on_disk=False
+                            )
+                        )
+                    }
                 )
-            )
-            qdrant_store = QdrantVectorStore(
-                client=self.qdrant_client,
-                collection_name=self.config.collection_name,
-                embedding=self.embeddings,
-            )
-            self.qdrant_store = qdrant_store
+            else:
+                self.qdrant_client.create_collection(
+                    collection_name=self.config.collection_name,
+                    vectors_config=VectorParams(
+                        size=self.config.embedding_dimensions,
+                        distance=Distance.COSINE
+                    )
+                )
             print(f'Collection {self.config.collection_name} created')
         else:
             print(f'Collection {self.config.collection_name} already exists')
@@ -88,7 +127,6 @@ class Ingestor:
         :return: the number of documents that were successfully ingested
         """
         docs = self.chunk_documents_from_file_path(file_path)
-        # self.qdrant_store.add_documents(docs)
         self.save_docs(docs, file_ref)
         return len(docs)
 
@@ -113,8 +151,29 @@ class Ingestor:
         return len(filtered_docs)
 
     def save_docs(self, docs: list[Document], file_ref: str) -> int:
+        qdrant_store: QdrantVectorStore
+        if self.config.is_hybrid_search:
+            qdrant_store = QdrantVectorStore(
+                retrieval_mode=RetrievalMode.HYBRID,
+                client=self.qdrant_client,
+                collection_name=self.config.collection_name,
+                embedding=self.embeddings,
+                sparse_embedding=self.sparse_embeddings,
+                vector_name=VectorNames.DENSE.value,
+                sparse_vector_name=VectorNames.SPARSE.value,
+            )
+        else:
+            qdrant_store = QdrantVectorStore(
+                client=self.qdrant_client,
+                collection_name=self.config.collection_name,
+                embedding=self.embeddings,
+            )
+
         for doc in docs:
             doc.metadata[CustomerMetadata.CHUNK_REFERENCE_NAME.value] = file_ref
-        self.qdrant_store.add_documents(docs)
+        qdrant_store.add_documents(docs)
+        return len(docs)
 
 
+if __name__ == '__main__':
+    pass

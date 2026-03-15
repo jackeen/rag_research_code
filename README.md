@@ -25,6 +25,8 @@ python -m scripts.pdf2md_script
 - openai
 - sentence-transformers
 - scikit-learn
+- marker (experiment doc convert)
+- fastembed (sparse vector embedding)
 
 
 
