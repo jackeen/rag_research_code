@@ -21,7 +21,7 @@ client = OpenAI(api_key=os.getenv('OPENAI_API_KEY'))
 
 def ask_open_ai(q):
     res = client.responses.create(
-        model=config.OPEN_AI_MODEL,
+        model=sys_config.OPEN_AI_MODEL,
         instructions='',
         input=q,
     )
@@ -72,7 +72,7 @@ def asking_each_questions(excel_name: str, sheet_name: str):
         dataset_version='v1',
         book_name='all',
         filter_name='',
-        model_name=config.OPEN_AI_MODEL,
+        model_name=sys_config.OPEN_AI_MODEL,
         db_collection_name='',
         question_number=len(answers),
     )

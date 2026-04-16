@@ -1,26 +1,18 @@
 import re
-
-import dotenv
 from langchain_community.document_loaders import PyMuPDFLoader
+from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_core.documents import Document
 from langchain_core.embeddings import Embeddings
-from langchain_huggingface import HuggingFaceEmbeddings
-from langchain_ollama import OllamaEmbeddings
 from langchain_openai import OpenAIEmbeddings
-from langchain_qdrant import FastEmbedSparse, QdrantVectorStore, RetrievalMode
-from langchain_text_splitters import RecursiveCharacterTextSplitter
+from langchain_ollama import OllamaEmbeddings
+from langchain_huggingface import HuggingFaceEmbeddings
+from langchain_qdrant import QdrantVectorStore, FastEmbedSparse, RetrievalMode
 from qdrant_client import QdrantClient
-from qdrant_client.models import (
-    Distance,
-    SparseIndexParams,
-    SparseVectorParams,
-    VectorParams,
-)
-
+from qdrant_client.models import VectorParams, Distance, SparseVectorParams, SparseIndexParams
+import dotenv
 import sys_config
 from tools import similarity
-
-from .config import AgentConfig, AgentConfigChoseModel, CustomerMetadata, VectorNames
+from .config import AgentConfig, CustomerMetadata, VectorNames, AgentConfigChoseModel
 
 
 class Ingestor:
@@ -36,20 +28,16 @@ class Ingestor:
         self.config = config
 
         # The hybrid mode needs it, the default model is Qdrant bm25 in this class if not set anything
-        self.sparse_embeddings = FastEmbedSparse(
-            model=self.config.sparse_embedding_model
-        )
+        self.sparse_embeddings = FastEmbedSparse(model=self.config.sparse_embedding_model)
 
         # For collection operation and langchain document store interface
-        self.qdrant_client = QdrantClient(
-            host=sys_config.QDRANT_HOST, port=sys_config.QDRANT_PORT
-        )
+        self.qdrant_client = QdrantClient(host=sys_config.QDRANT_HOST, port=sys_config.QDRANT_PORT)
 
     def use_openai_embeddings(self):
         dotenv.load_dotenv()
         self.embeddings = OpenAIEmbeddings(
             model=self.config.embedding_model,
-            dimensions=self.config.embedding_dimensions,
+            dimensions=self.config.embedding_dimensions
         )
 
     def use_ollama_embeddings(self):
@@ -82,25 +70,28 @@ class Ingestor:
                     },
                     sparse_vectors_config={
                         VectorNames.SPARSE.value: SparseVectorParams(
-                            index=SparseIndexParams(on_disk=False)
+                            index=SparseIndexParams(
+                                on_disk=False
+                            )
                         )
-                    },
+                    }
                 )
             else:
                 self.qdrant_client.create_collection(
                     collection_name=self.config.collection_name,
                     vectors_config=VectorParams(
-                        size=self.config.embedding_dimensions, distance=Distance.COSINE
-                    ),
+                        size=self.config.embedding_dimensions,
+                        distance=Distance.COSINE
+                    )
                 )
-            print(f"Collection {self.config.collection_name} created")
+            print(f'Collection {self.config.collection_name} created')
         else:
-            print(f"Collection {self.config.collection_name} already exists")
+            print(f'Collection {self.config.collection_name} already exists')
 
     def force_create_collection(self):
         if self.qdrant_client.collection_exists(self.config.collection_name):
             self.qdrant_client.delete_collection(self.config.collection_name)
-            print(f"Collection {self.config.collection_name} is renewing")
+            print(f'Collection {self.config.collection_name} is renewing')
         self.create_collection()
 
     def chunk_documents_from_file_path(self, file_path: str) -> list[Document]:
@@ -139,9 +130,7 @@ class Ingestor:
         self.save_docs(docs, file_ref)
         return len(docs)
 
-    def ingest_pdf_with_threshold_filter(
-        self, file_path: str, std_answers: list[str], file_ref: str
-    ) -> int:
+    def ingest_pdf_with_threshold_filter(self, file_path: str, std_answers: list[str], file_ref: str) -> int:
         """
         Ingest a pdf file and filter the documents by cosine similarity threshold that were successfully ingested
         :param file_path:
@@ -151,9 +140,7 @@ class Ingestor:
         """
         docs = self.chunk_documents_from_file_path(file_path)
         chunks = [doc.page_content for doc in docs]
-        max_similarities = similarity.calculate_max_cosine_similarities(
-            chunks, std_answers
-        )
+        max_similarities = similarity.calculate_max_cosine_similarities(chunks, std_answers)
         # print(f"max_similarities: {max_similarities}")
         filtered_docs = []
         for doc, max_sim in zip(docs, max_similarities):
@@ -188,5 +175,5 @@ class Ingestor:
         return len(docs)
 
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     pass

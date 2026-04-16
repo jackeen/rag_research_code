@@ -8,3 +8,7 @@ So, in ingestion and retrieval stage must use the exact same model, also in eval
 - BM25(TF-IDF)
 - Bert based model, it can extend words depending on model power
 
+## Cosine Similarity Application
+
+
+

@@ -13,7 +13,10 @@ if __name__ == '__main__':
     p1 = ("A woman is peeling an apple.", "A woman is peeling a potato.")
     p2 = ("A boy is eating an apple.", "A boy is eating some meet.")
     p3 = ("LAMP, standing for Linux, Apache, MySQL, and PHP, named in the same order.", "no")
-    scores = model.predict([p2])
+
+    p4 = ('Firewood Box', 'Flexible Box Layout')
+
+    scores = model.predict([p4])
     print(scores)
     label_mapping = ['contradiction', 'entailment', 'neutral']
     result = label_mapping[np.argmax(scores)]

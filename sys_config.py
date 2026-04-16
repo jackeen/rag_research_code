@@ -23,6 +23,7 @@ OLLAMA_GRANITE_EMBEDDING_MODEL_DIMENSIONS = 768
 
 # OpenAI model
 OPEN_AI_MODEL = "gpt-4.1-mini"
+OPEN_AI_MODEL_5_4_MINI = "gpt-5.4-mini"
 
 # OpenAI embedding model default 1536, 8192 token, genetic model
 OPEN_AI_EMBEDDING_MODEL = "text-embedding-3-small"

@@ -56,9 +56,6 @@ class AgentConfig:
     retrieve_top_k: int = 4
     retrieve_similarity: float = 0.0
 
-    # generate
-    is_not_use_llm_knowledge: bool = False
-
     # embedding
     # the dimensions of embedding model from OpenAI are flexible
     embedding_model: str = ''

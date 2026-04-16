@@ -2,6 +2,7 @@ __pycache__/
 .venv/
 temp/
 data/
+logs/
 books/
 .DS_Store
 .env
