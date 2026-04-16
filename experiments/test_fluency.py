@@ -3,6 +3,7 @@ The sentence fluency experiment.
 """
 
 from langchain_ollama import ChatOllama
+from langchain_core.output_parsers import StrOutputParser
 import sys_config
 
 llm = ChatOllama(
@@ -35,15 +36,17 @@ def fluency_score(text: str) -> float:
     "{text}"
     '''
 
-    result = llm.invoke(input=prompt).content
+    chain = llm | StrOutputParser()
+
+    result = chain.invoke(input=prompt)
     return float(result)
 
 
 if __name__ == '__main__':
     content = '''
     However, the cold hard truth is that whilst I fundamentally favor
-    and build sites using the progressive enhancement methodology, 
-    there are plenty of instances where I am arguably doing things in a graceful degradation manner. 
+    and build sites using the progressive enhancement methodology,
+    there are plenty of instances where I am arguably doing things in a graceful degradation manner.
     '''
     content2 = '''
     W
@@ -71,5 +74,5 @@ if __name__ == '__main__':
     '''
 
     content3 = """aksdfoaheiadflasjf ksdlf"""
-    
+
     print(fluency_score(content), fluency_score(content2), fluency_score(content3))
