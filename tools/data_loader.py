@@ -22,7 +22,9 @@ class References(Enum):
     """The references for every book, which is used to track the chunk where is from."""
 
     INTRO_WEB_DEV_1 = "Mendez, M. (2014). The Missing Link: An Introduction to Web Development and Programming. Open SUNY Textbooks."
-    RESPONSIVE_WEB_DESIGN_2 = "APA"
+    RESPONSIVE_WEB_DESIGN_2 = (
+        "Frain, B. (2012). Responsive web design with HTML5 and CSS3. Packt Publishing."
+    )
     LEARNING_REACT_4 = "Banks, A., & Porcello, E. (2017). Learning React: functional web development with React and Redux. ' O'Reilly Media, Inc.'."
     DESIGN_PATTERN_5 = (
         "Freeman, E., & Robson, E. (2020). Head first design patterns. O'Reilly Media."
