@@ -1,18 +1,19 @@
 """
 This experiment based on beta RAG system for testing keywords filter.
 """
-import html
+
 import dataclasses
 from collections import Counter
 from dataclasses import dataclass, field
-from typing import Self, Any
+from typing import Self
 
 import numpy as np
 import pandas as pd
 from dataclasses_json import DataClassJsonMixin
 from langchain_community.document_loaders import PyMuPDFLoader, TextLoader
 from langchain_core.documents import Document
-from langchain_core.language_models import BaseChatModel
+
+# from langchain_core.language_models import BaseChatModel
 from langchain_ollama import ChatOllama
 from langchain_text_splitters import (
     MarkdownHeaderTextSplitter,
@@ -22,6 +23,7 @@ from sklearn.feature_extraction.text import TfidfVectorizer
 
 import sys_config
 from beta.ingestor import AgentConfig, AgentConfigChoseModel, Ingestor
+from ingestion.filters.anchor import AnchorCollector, AnchorSelector, Segment, Topic
 from ingestion.kg_builder.entity import (
     Entity,
     cluster_keys,
@@ -32,8 +34,9 @@ from ingestion.kg_builder.entity import (
 from tools.data_loader import (
     BookNames,
     References,
-    get_book_path,
     get_book_md_path,
+    get_book_path,
+    get_book_pdf_path,
     get_csv_data_path,
     get_csv_log_path,
     get_json_data_path,
@@ -69,6 +72,7 @@ class KeyWords(DataClassJsonMixin):
 @dataclass
 class Anchors(DataClassJsonMixin):
     """"""
+
     topic_content_list: list[str] = field(default_factory=list)
     anchor_list: list[list[str]] = field(default_factory=list)
 
@@ -96,8 +100,8 @@ class ChunkPipeline:
     """Treat the chunks by some ways for filtered chunks"""
 
     # target pdf file path for loading data
-    pdf_file_path: str
-    md_file_path: str
+    # pdf_file_path: str
+    # md_file_path: str
 
     # the cached file contained scores and chunks
     cache_file_path: str
@@ -115,9 +119,9 @@ class ChunkPipeline:
     # the splitter for keywords stored in db and inner of class
     KEYWORDS_SPLITTER: str = "|"
 
-    def __init__(self, pdf_file_path: str, md_file_path: str, kws: list[str], labels: list[str]):
-        self.pdf_file_path = pdf_file_path
-        self.md_file_path = md_file_path
+    def __init__(self, kws: list[str], labels: list[str]):
+        # self.pdf_file_path = pdf_file_path
+        # self.md_file_path = md_file_path
         self.gliner_global_keywords = kws
         self.gliner_labels = labels
         self.llm = ChatOllama(
@@ -143,9 +147,13 @@ class ChunkPipeline:
         self.chunks = [Chunk(**row) for row in df.to_dict(orient="records")]
         return self
 
-    def load_chunks_from_pdf(self) -> Self:
-        """Chunk the given PDF file into documents defined by langchain"""
-        loader = PyMuPDFLoader(self.pdf_file_path)
+    def load_chunks_from_pdf(self, pdf_file_name: str) -> Self:
+        """
+        Chunk the given PDF file into documents defined by langchain,
+        it powered by PyMuPDFLoader which is not recommended for complex documents.
+        """
+        pdf_path = get_book_pdf_path(pdf_file_name)
+        loader = PyMuPDFLoader(pdf_path)
 
         # loaded_docs[23:], after page 23 is first chapter for book 2
         loaded_docs = loader.load()
@@ -170,8 +178,9 @@ class ChunkPipeline:
 
         return self
 
-    def load_chunks_from_md(self) -> Self:
-        md_loader = TextLoader(self.md_file_path, encoding="utf-8")
+    def load_chunks_from_md(self, md_file_name: str) -> Self:
+        md_path = get_book_md_path(md_file_name)
+        md_loader = TextLoader(md_path, encoding="utf-8")
         # this loader can read the dir with serveral files,
         # so its return is the list of documents
         md_data = md_loader.load()
@@ -187,23 +196,20 @@ class ChunkPipeline:
             strip_headers=True,
         )
 
-        # cleaning
-        # marker converted md includes some \t
-        # and image block
-        # and html
-        raw_md_content = md_data[0].page_content.replace('\t', ' ').replace('<!-- image -->', '')
-        raw_md_content = html.unescape(raw_md_content)
+        raw_md_content = md_data[0].page_content
 
         # the splitter devided the input larger document into smaller documents
         header_docs = md_header_splitter.split_text(raw_md_content)
         for doc in header_docs:
-            self.chunks.append(Chunk(
-                content=doc.page_content,
-                header_1=doc.metadata.get("header_1", ""),
-                header_2=doc.metadata.get("header_2", ""),
-                header_3=doc.metadata.get("header_3", ""),
-                header_4=doc.metadata.get("header_4", ""),
-            ))
+            self.chunks.append(
+                Chunk(
+                    content=doc.page_content,
+                    header_1=doc.metadata.get("header_1", ""),
+                    header_2=doc.metadata.get("header_2", ""),
+                    header_3=doc.metadata.get("header_3", ""),
+                    header_4=doc.metadata.get("header_4", ""),
+                )
+            )
 
         return self
 
@@ -284,12 +290,92 @@ class ChunkPipeline:
         self.chunks = filtered_chunks
         return self
 
-    def refine_md_chunks(self) -> Self:
+    def refine_md_chunks_by_llm(self, std_answers: list[str]) -> Self:
+        # init the collector
+        anchor_collector = AnchorCollector(
+            ollama_url=sys_config.OLLAMA_URL_BASE,
+            ollama_model=sys_config.OLLAMA_GRANITE_MODEL_4_3B_H,
+        )
+
+        # generate segments
+        segments: list[Segment] = []
+        for chunk in self.chunks:
+            seg = Segment(content=chunk.content)
+            segments.append(seg)
+
+        # generage topics
+        topics: list[Topic] = []
+        for answer in std_answers:
+            topic = Topic(content=answer)
+            topics.append(topic)
+
+        refined_list: list[str] = []
+        anchor_collector.push_data(
+            topics, segments
+        ).refine_segments_by_topics().get_refined_segments_str_list(refined_list)
+
+        refined_chunks: list[Chunk] = []
+        for chunk_str in refined_list:
+            for chunk in self.chunks:
+                if chunk.content == chunk_str:
+                    refined_chunks.append(chunk)
+
+        self.chunks = refined_chunks
+        return self
+
+    def refine_chunks_from_db(
+        self, base_topics: list[str], level: int, collection_name: str
+    ) -> Self:
+        """
+        Refine the related chunks from database by cosine score.
+        The implement is leveraging qdrant query method and algorithms.
+        level: 0 - page level, 1 - paragraph level
+        """
+        anchor_selector = AnchorSelector(
+            host=sys_config.QDRANT_HOST,
+            port=sys_config.QDRANT_PORT,
+            dense_embedding_model=sys_config.OLLAMA_GRANITE_EMBEDDING_MODEL_768,
+            code_tag_model=sys_config.OLLAMA_GRANITE_MODEL_4_3B_H,
+        )
+
+        # wrap str topics as objects
+        topics: list[Topic] = []
+        for bt in base_topics:
+            topic = Topic(content=bt)
+            topics.append(topic)
+
+        # refine the related page-level chunks from database
+        refined_content_list: list[str] = []
+        anchor_selector.connect_db().refine_page_chunks_from_queried_points(
+            topics=topics, collection_name=collection_name
+        )
+
+        if level == 0:
+            anchor_selector.get_selected_page_chunk_str_list(refined_content_list)
+
+        if level == 1:
+            anchor_selector.refine_paragrahp_chunks().get_hybrid_chunks_str_list(
+                refined_content_list
+            )
+
+        # wrap str chunks as objects
+        refined_chunks: list[Chunk] = []
+        for rc in refined_content_list:
+            refined_chunks.append(Chunk(content=rc))
+
+        self.chunks = refined_chunks
 
         return self
 
-    def ingest(self, collection_name: str = "exp_3_entity_filtered") -> Self:
-        config = AgentConfig(collection_name=collection_name, is_hybrid_search=False)
+    # def refine_paragraph_chunks_from_page_chunks(self) -> Self:
+    #     return self
+
+    def ingest(
+        self, collection_name: str = "exp_3_entity_filtered", is_hybrid=False
+    ) -> Self:
+        config = AgentConfig(
+            collection_name=collection_name, is_hybrid_search=is_hybrid
+        )
         AgentConfigChoseModel.chose_ollama_llm_model(
             config, sys_config.OLLAMA_GRANITE_MODEL_4_3B_H
         )
@@ -319,61 +405,22 @@ class ChunkPipeline:
             )
             docs.append(doc)
 
+        # save the chunks in vector database
         ingestor.save_docs(
             docs=docs,
             file_ref=References.RESPONSIVE_WEB_DESIGN_2.value,
         )
 
+        # output ingestion logs
+        log_df = pd.DataFrame(
+            {
+                "chunks": [chunk.content for chunk in self.chunks],
+            }
+        )
+        log_path = get_csv_log_path("exp_3_ingestion")
+        log_df.to_csv(log_path, index=True, encoding="utf-8")
+
         return self
-
-    # def score_fluency(self) -> Self:
-    #     """This method not work right now"""
-
-    #     def get_prompt(text):
-    #         return f'''
-    #         You are a language quality evaluator.
-
-    #         Your task is to assess how fluent and natural a given piece of text is in English.
-
-    #         Fluency includes:
-    #         - grammatical correctness
-    #         - clarity of expression
-    #         - natural phrasing (native-like)
-    #         - logical flow between sentences
-
-    #         Instructions:
-    #         - Output a single number between 0 and 1
-    #         - 1 = perfectly fluent and natural
-    #         - 0 = completely broken or incomprehensible
-    #         - Do NOT provide explanations or any extra text
-    #         - Only return the score
-
-    #         Text to evaluate:
-
-    #         "{text}"
-    #         '''
-
-    #     for chunk in self.chunks:
-    #         result = self.llm.invoke(input=get_prompt(chunk.content)).content
-    #         chunk.fluency_score = self.str_to_float(str(result))
-
-    #     return self
-
-    # def str_to_float(self, input: str) -> float:
-    #     try:
-    #         return float(input)
-    #     except ValueError:
-    #         return 0.0
-    #     except TypeError:
-    #         return 0.0
-
-    # def filter_low_fluency(self, limit: float = 0.5) -> Self:
-    #     filtered_chunks: list[Chunk] = []
-    #     for c in self.chunks:
-    #         if c.fluency_score >= limit:
-    #             filtered_chunks.append(c)
-    #     self.chunks = filtered_chunks
-    #     return self
 
 
 def get_intersection(
@@ -424,6 +471,7 @@ def ingest_book_without_filter():
 
 
 def ingest_book(concepts: list[str], labels: list[str]):
+    """ingestion with keywords filter (not used)"""
     config = AgentConfig(
         collection_name="exp_3_entity_filtered", is_hybrid_search=False
     )
@@ -499,7 +547,7 @@ def ingest_book(concepts: list[str], labels: list[str]):
     log_df.to_csv(log_path, index=True, encoding="utf-8")
 
 
-def load_entity_source() -> list[str]:
+def load_standard_answers() -> list[str]:
     """
     Load the source of entities about Responsive Web Design
     :return: the list of questions
@@ -515,7 +563,7 @@ def print_splitter_with_head(head: str):
 
 
 def extract_and_save_keywords():
-    entity_source = load_entity_source()
+    entity_source = load_standard_answers()
 
     concepts_list_spacy: list[str] = []
     concepts_list: list[Entity] = []
@@ -557,8 +605,9 @@ def load_extracted_entities() -> KeyWords:
         kw = KeyWords.from_json(f.read())
         return kw
 
+
 def extract_and_save_anchors():
-    entity_source = load_entity_source()
+    entity_source = load_standard_answers()
     anchors = Anchors()
     for c in entity_source:
         anchors.topic_content_list.append(c)
@@ -597,13 +646,15 @@ def entity_filter_task():
 
 
 def score_chunks_before_ingestion():
+    # pdf_file_path=str(get_book_path(BookNames.RESPONSIVE_WEB_DESIGN_2.value)),
+    # md_file_path=str(get_book_md_path(BookNames.RESPONSIVE_WEB_DESIGN_2.value)),
     kws = load_extracted_entities()
     chunk_pipline = ChunkPipeline(
-        pdf_file_path=str(get_book_path(BookNames.RESPONSIVE_WEB_DESIGN_2.value)),
-        md_file_path=str(get_book_md_path(BookNames.RESPONSIVE_WEB_DESIGN_2.value)),
         kws=kws.gliner,
         labels=kws.cluster,
     )
+
+    ### score filter based on keywords
     # chunk_pipline.load_chunks_from_cache_cvs().score_keywords().score_features().save_chunk_as_csv()
     # chunk_pipline.load_chunks_from_cache_cvs().filter_keywords().filter_features_with_keywords(
     #     0.5, 1
@@ -623,25 +674,51 @@ def score_chunks_before_ingestion():
 
     # chunk_pipline.load_chunks_from_cache_cvs("chunks_score").filter_keywords().ingest()
 
-    # chunk_pipline.load_chunks_from_md().save_chunk_as_csv("chunks_md").ingest("exp_3_md")
+    ############################## the upper method is old experiments
 
+    ### MD methods
+    # chunk_pipline.load_chunks_from_md("2_slim").save_chunk_as_csv("chunks_md").ingest(
+    #     "exp_3_md"
+    # )
     # chunk_pipline.load_chunks_from_cache_cvs("chunks_md").ingest("exp_3_md")
 
-    # ----------
+    ### MD methods with llm filter (not used)
+    # leverage llm to figure out each chunk that suitable for topics
+    # this costs about one hour, lower 19% chunks
+    # std_answers = load_standard_answers()
+    # chunk_pipline.load_chunks_from_cache_cvs("chunks_md").refine_md_chunks_by_llm(
+    #     std_answers
+    # ).ingest("exp_3_md_refined")
+
+    ### MD methods with label filter
+    # refine chunks from db
+    std_answers = load_standard_answers()
+    chunk_pipline.refine_chunks_from_db(
+        base_topics=std_answers, level=1, collection_name="exp_3_md"
+    ).save_chunk_as_csv("exp_3_md_refined_normal_paragraph").ingest(
+        collection_name="exp_3_md_refined_normal_paragraph_chunks",
+        is_hybrid=False,
+    )
 
 
-
-
+def ingest_std_answers():
+    std_answers = load_standard_answers()
+    kws = load_extracted_entities()
+    pipline = ChunkPipeline(kws.gliner, kws.cluster)
+    pipline.chunks = [Chunk(content=answer) for answer in std_answers]
+    pipline.ingest("exp_3_std_answer")
 
 
 if __name__ == "__main__":
+    # ingest_std_answers()
+
     # extract_and_save_keywords()
     # entity_filter_task()
 
-    extract_and_save_anchors()
+    # extract_and_save_anchors()
     # print(load_extracted_anchors())
 
     # This part is for comparison
     # ingest_book_without_filter()
 
-    # score_chunks_before_ingestion()
+    score_chunks_before_ingestion()

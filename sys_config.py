@@ -1,4 +1,3 @@
-
 # 256 token
 # EMBEDDING_MODEL_384 = 'sentence-transformers/all-MiniLM-L6-v2'
 # EMBEDDING_MODEL_768 = 'sentence-transformers/all-mpnet-base-v2'
@@ -18,8 +17,16 @@ QDRANT_COLLECTION_NAME = "RAG_Granite"
 OLLAMA_URL_BASE = "http://localhost:11434/"
 OLLAMA_GRANITE_MODEL_3_3_8B = "granite3.3:8b"
 OLLAMA_GRANITE_MODEL_4_3B_H = "granite4:3b-h"
-OLLAMA_GRANITE_EMBEDDING_MODEL_768 = 'granite-embedding:278m'
+OLLAMA_GRANITE_MODEL_4_7B_A1B = "granite4:7b-a1b-h"
+
+OLLAMA_GRANITE_EMBEDDING_MODEL_768 = "granite-embedding:278m"
 OLLAMA_GRANITE_EMBEDDING_MODEL_DIMENSIONS = 768
+
+# The cloud model of ollama is powered by ollama cloud service,
+# the local service will route the request to the cloud model.
+OLLAMA_GEMMA_MODEL_4_31B_CLOUD = "gemma4:31b-cloud"
+
+OLLAMA_GEMMA_MODEL_4_E2B = "gemma4:e2b"
 
 # OpenAI model
 OPEN_AI_MODEL = "gpt-4.1-mini"
@@ -41,7 +48,9 @@ TRANSFORMER_MINI_L6_V2_EMBEDDING_MODEL_384 = "all-MiniLM-L6-v2"
 TRANSFORMER_MINI_L6_V2_EMBEDDING_MODEL_DIMENSIONS = 384
 
 # 8192 token, focus on limited area, better anti-noisy
-TRANSFORMER_GRANITE_SMALL_R2_EMBEDDING_MODEL_384 = "ibm-granite/granite-embedding-small-english-r2"
+TRANSFORMER_GRANITE_SMALL_R2_EMBEDDING_MODEL_384 = (
+    "ibm-granite/granite-embedding-small-english-r2"
+)
 TRANSFORMER_GRANITE_SMALL_R2_EMBEDDING_MODEL_DIMENSIONS = 384
 
 # 8192 token

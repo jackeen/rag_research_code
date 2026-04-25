@@ -40,13 +40,26 @@ def get_book_path(book_file_name: str) -> Path:
     return Path(__file__).parent.parent.absolute().joinpath(f"books/{book_file_name}")
 
 
+def get_book_pdf_path(book_file_name: str) -> Path:
+    """
+    Get the pdf book path from books dir.
+    :param book_file_name:
+    :return: the absolute path of the book
+    """
+    return (
+        Path(__file__).parent.parent.absolute().joinpath(f"books/{book_file_name}.pdf")
+    )
+
+
 def get_book_md_path(book_file_name: str) -> Path:
     """
     Get the markdown file path from books dir.
     :param book_file_name: the book name
     :return: the absolute path of the md file
     """
-    return get_book_path(book_file_name).with_suffix(".md").absolute()
+    return (
+        Path(__file__).parent.parent.absolute().joinpath(f"books/{book_file_name}.md")
+    )
 
 
 def get_excel_data_path(excel_name: str) -> Path:

@@ -1,22 +1,28 @@
+from datetime import datetime
+
 import numpy as np
 import pandas as pd
 
 import sys_config
 from beta.agent import Agent
 from beta.config import AgentConfig, AgentConfigChoseModel
-from ingestion.kg_builder.entity import gliner_extraction_str_keywords
+
+# from ingestion.kg_builder.entity import gliner_extraction_str_keywords
 from tools.data_loader import get_csv_data_path, get_csv_log_path
 from tools.similarity import calculate_cosine_similarity
 
-from .exp_3_ingestion import load_extracted_entities
+# from .exp_3_ingestion import load_extracted_entities
 
 
-def test_agent_based_on_entity_filter(c_name: str, topk: int = 4):
+def test_agent_based_on_entity_filter(
+    c_name: str, topk: int = 4, score_limit: float = 0.0, is_hybrid=False
+):
     agent_config = AgentConfig(
         collection_name=c_name,
-        is_hybrid_search=False,
+        is_hybrid_search=is_hybrid,
         is_not_use_llm_knowledge=True,
         retrieve_top_k=topk,
+        retrieve_similarity=score_limit,
     )
     AgentConfigChoseModel.chose_ollama_llm_model(
         agent_config, sys_config.OLLAMA_GRANITE_MODEL_4_3B_H
@@ -45,18 +51,18 @@ def test_agent_based_on_entity_filter(c_name: str, topk: int = 4):
     #     print(std_answer)
 
     # load pre-extracted keywords
-    g_kw = load_extracted_entities()
+    # g_kw = load_extracted_entities()
 
     agent_answers: list[str] = []
     retrieved_docs: list[str] = []
-    query_keywords_list: list[str] = []
+    # query_keywords_list: list[str] = []
     for question in questions:
         # currently, just record the log, kws is not used for searching
-        q_kws = gliner_extraction_str_keywords(question, g_kw.cluster)
+        # q_kws = gliner_extraction_str_keywords(question, g_kw.cluster)
         answer, docs, ref_list = agent.invoke_with_retrieved_contents(question, [])
 
         # collect logs
-        query_keywords_list.append(", ".join(q_kws))
+        # query_keywords_list.append(", ".join(q_kws))
         agent_answers.append(answer)
         retrieved_docs.append("\n\n".join(docs))
 
@@ -80,7 +86,7 @@ def test_agent_based_on_entity_filter(c_name: str, topk: int = 4):
     result_df = pd.DataFrame(
         {
             "question": questions,
-            "question_kws": query_keywords_list,
+            # "question_kws": query_keywords_list,
             "std_answers": std_answers,
             "answers": agent_answers,
             "similarity": similarity_list,
@@ -92,13 +98,46 @@ def test_agent_based_on_entity_filter(c_name: str, topk: int = 4):
 
 
 if __name__ == "__main__":
+    std_collection = "exp_3_std_answer"
+
+    # old experiment based on entity match filter
     filtered_collection = "exp_3_entity_filtered"
     all_collection = "exp_3_entity"
+
+    # based on header splitter
     md_collection = "exp_3_md"
 
+    # refined by llm
+    md_collection_refined = "exp_3_md_refined"
+
+    # refined by first level anchor
+    md_refined_page = "exp_3_md_refined_page_chunks"
+
+    # filter code page
+    md_refined_page_without_code = "exp_3_md_refined_page_chunks_without_code"
+
+    md_normal_paragraph = "exp_3_md_refined_normal_paragraph_chunks"
+
+    # test_agent_based_on_entity_filter(all_collection)
+
+    # print("Under 20 chunks")
+    # test_agent_based_on_entity_filter(std_collection, 20, 0.6)
+
+    # print("Under 4 chunks")
+    # test_agent_based_on_entity_filter(std_collection, 4, 0.6)
+
+    print("---------------------------")
+    print(datetime.now().isoformat())
+    print("---------------------------")
+
     print("Under 20 chunks")
-    test_agent_based_on_entity_filter(md_collection, 20)
+    test_agent_based_on_entity_filter(
+        c_name=md_normal_paragraph, topk=20, is_hybrid=False
+    )
+
+    print("----")
 
     print("Under 4 chunks")
-    test_agent_based_on_entity_filter(md_collection, 4)
-    # test_agent_based_on_entity_filter(all_collection)
+    test_agent_based_on_entity_filter(
+        c_name=md_normal_paragraph, topk=4, is_hybrid=False
+    )

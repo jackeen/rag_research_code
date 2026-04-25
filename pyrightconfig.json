@@ -1,13 +1,3 @@
-// {
-//   "include": ["."],
-//   "exclude": [
-//     "**/node_modules",
-//     "**/__pycache__",
-//     ".venv",
-//     "venv",
-//     "dist",
-//     "build"
-//   ],
-//   "reportMissingTypeStubs": false,
-//   "typeCheckingMode": "standard"
-// }
+{
+  "reportPrivateImportUsage": false,
+}

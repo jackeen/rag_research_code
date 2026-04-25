@@ -354,7 +354,10 @@ class Agent:
             keywords_filter = None
 
         retrieved = self.vector_store.similarity_search_with_score(
-            query=query, k=self.config.retrieve_top_k, filter=keywords_filter
+            query=query,
+            k=self.config.retrieve_top_k,
+            filter=keywords_filter,
+            score_threshold=self.config.retrieve_similarity,
         )
 
         # print("---------------------------------------------------------")

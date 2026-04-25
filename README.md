@@ -37,3 +37,4 @@ python -m scripts.pdf2md_script
 - torch
 - numpy
 - scipy
+- mistune (markdown tree parser )
