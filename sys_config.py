@@ -22,6 +22,10 @@ OLLAMA_GRANITE_MODEL_4_7B_A1B = "granite4:7b-a1b-h"
 OLLAMA_GRANITE_EMBEDDING_MODEL_768 = "granite-embedding:278m"
 OLLAMA_GRANITE_EMBEDDING_MODEL_DIMENSIONS = 768
 
+# default 768
+OLLAMA_GEMMA_EMBEDDING_MODEL_768 = "embeddinggemma:300m"
+OLLAMA_GEMMA_EMBEDDING_MODEL_DIMENSIONS = 768
+
 # The cloud model of ollama is powered by ollama cloud service,
 # the local service will route the request to the cloud model.
 OLLAMA_GEMMA_MODEL_4_31B_CLOUD = "gemma4:31b-cloud"

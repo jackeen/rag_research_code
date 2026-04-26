@@ -14,14 +14,15 @@ import ollama
 from ollama import ChatResponse, Client, Message, chat
 from qdrant_client import QdrantClient
 
-from ingestion.converters.code_block_inline import CodeTag
-
 # from .entailment_filter_cross_deberta import is_paragraph_supports_topic
+# from .classifier_llm_core_point import is_not_introduction
+import sys_config
+from ingestion.converters.code_block_inline import CodeTag
 
 
 def generate_system_prompt() -> str:
     system_content = """
-    # Does the following text discuss this topic?
+    # Does the following text discuss the given topic?
     """
     return system_content
 
@@ -51,8 +52,9 @@ def is_associated(topic: str, content: str) -> bool:
         content=generate_user_prompt(topic, content),
     )
 
+    # different LLM may cause different result, carefully to chose and test
     res: ChatResponse = chat(
-        model="granite4:3b-h",
+        model=sys_config.OLLAMA_GEMMA_MODEL_4_E2B,
         messages=[system_msg, user_msg],
     )
     res_content = res.message.content
@@ -325,11 +327,14 @@ class AnchorSelector:
                         else:
                             self._paragraph_chunks.append(node_content)
                             # NLI method
+                            # not used based on its lower effective and high complexity
                             # is_ok, _ = is_paragraph_supports_topic(topic, node_content)
 
                             # LLM method
-                            is_ok = is_associated(topic, node_content)
-                            if is_ok:
+                            is_associated_with_topic = is_associated(
+                                topic, node_content
+                            )
+                            if is_associated_with_topic:
                                 self._refined_paragraph_chunks.append(node_content)
 
         return self

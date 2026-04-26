@@ -324,7 +324,12 @@ class ChunkPipeline:
         return self
 
     def refine_chunks_from_db(
-        self, base_topics: list[str], level: int, collection_name: str
+        self,
+        base_topics: list[str],
+        level: int,
+        collection_name: str,
+        pages_per_topic: int,
+        pages_threshold: float,
     ) -> Self:
         """
         Refine the related chunks from database by cosine score.
@@ -347,7 +352,10 @@ class ChunkPipeline:
         # refine the related page-level chunks from database
         refined_content_list: list[str] = []
         anchor_selector.connect_db().refine_page_chunks_from_queried_points(
-            topics=topics, collection_name=collection_name
+            topics=topics,
+            collection_name=collection_name,
+            size=pages_per_topic,
+            threshold=pages_threshold,
         )
 
         if level == 0:
@@ -694,10 +702,13 @@ def score_chunks_before_ingestion():
     # refine chunks from db
     std_answers = load_standard_answers()
     chunk_pipline.refine_chunks_from_db(
-        base_topics=std_answers, level=1, collection_name="exp_3_md"
+        base_topics=std_answers,
+        level=1,
+        collection_name="exp_3_md",
+        pages_per_topic=8,
+        pages_threshold=0.5,
     ).save_chunk_as_csv("exp_3_md_refined_normal_paragraph").ingest(
-        collection_name="exp_3_md_refined_normal_paragraph_chunks",
-        is_hybrid=False,
+        collection_name="exp_3_md_refined_normal_paragraph_chunks_2",
     )
 
 

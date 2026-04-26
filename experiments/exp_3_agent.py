@@ -118,6 +118,9 @@ if __name__ == "__main__":
 
     md_normal_paragraph = "exp_3_md_refined_normal_paragraph_chunks"
 
+    # for more idea to try
+    md_normal_paragraph_2 = "exp_3_md_refined_normal_paragraph_chunks_2"
+
     # test_agent_based_on_entity_filter(all_collection)
 
     # print("Under 20 chunks")
@@ -130,14 +133,10 @@ if __name__ == "__main__":
     print(datetime.now().isoformat())
     print("---------------------------")
 
-    print("Under 20 chunks")
-    test_agent_based_on_entity_filter(
-        c_name=md_normal_paragraph, topk=20, is_hybrid=False
-    )
+    # print("Under 20 chunks")
+    # test_agent_based_on_entity_filter(c_name=md_normal_paragraph_2, topk=20)
 
-    print("----")
+    # print("----")
 
     print("Under 4 chunks")
-    test_agent_based_on_entity_filter(
-        c_name=md_normal_paragraph, topk=4, is_hybrid=False
-    )
+    test_agent_based_on_entity_filter(c_name=md_normal_paragraph, topk=4)

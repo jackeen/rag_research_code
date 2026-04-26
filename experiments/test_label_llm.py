@@ -11,7 +11,8 @@ import sys_config
 
 def generate_system_prompt() -> str:
     system_prompt = """
-    You are a document analysis assistant working for labeling the document.
+    You are a content classifier for a technical book indexing system.
+    Your job is to determine whether a text chunk contains substantive information or not.
     """
     return system_prompt
 
@@ -19,54 +20,44 @@ def generate_system_prompt() -> str:
 #  in first line. Answer the refined content in the second line
 def generate_user_prompt(text: str) -> str:
     user_prompt = f"""
-    ## text
+    A chunk has SUBSTANTIVE information if it delivers concrete knowledge that a reader would lose if the chunk were deleted. Specifically, it must contain at least one of the following:
+    1. A definition or explanation of how something works
+    2. Code, commands, configuration, syntax, or API usage
+    3. Specific parameters, constraints, return values, or behavioral details
+    4. A comparison or trade-off with concrete criteria ("use X when..., use Y when...")
+    5. A warning, pitfall, common error, or best practice with specific detail
+    6. A step-by-step procedure or actionable instruction
+    7. Architecture, data flow, or design reasoning with specific components named
+
+    A chunk has NO SUBSTANTIVE information if it only does one or more of the following without delivering any concrete knowledge:
+    1. Summarizes or restates what was covered ("In this chapter we learned...")
+    2. Previews what will be covered ("In the next chapter we will...")
+    3. References or names technical terms without explaining, defining, or demonstrating them
+    4. Uses rhetorical questions or motivational framing ("Imagine you are...", "Have you ever wondered...")
+    5. Provides commentary or opinion without technical detail ("This is a very powerful feature", "You'll find this surprisingly easy")
+    6. Connects sections with transitional language only ("As we discussed earlier...", "Let's now turn to...")
+    7. Gives an oversimplified analogy that is immediately replaced by a proper explanation elsewhere
+
+    Key distinction: mentioning a concept is not the same as explaining it. "We learned what media queries are and how to use them" mentions the topic. "A media query consists of a media type and one or more expressions that check for conditions of particular media features" explains it.
+
+    Respond with a single JSON object, reason first:
+    {{"reason": "one sentence explaining your judgment", "label": "SUBSTANTIVE" or "NO_SUBSTANTIVE"}}
+
+    Chunk to classify:
     {text}
-
-    ## Option labels
-    - table_of_contents
-    - index
-    - code
-    - introduction
-    - prose
-    - other
-
-    ## Rules
-    - If the text contains a list of chapters or sections with page numbers, label it as "table_of_contents"
-    - If the text contains list of short line and each line started from "-" char, label it as "index"
-    - If the text contains programming code, scripts, or command-line instructions, label it as "code"
-    - If the text contains question sentences, summary, label it as "introduction"
-    - If the text contains paragraphs, explanations, or detailed content, label it as "prose"
-    - If the text does not fit any of the above categories, label it as "other"
-
-    ## Output format
-    Output one name of the list of labels, without any other information.
     """
 
     return user_prompt
 
 
-python_sample = """
-def train_classifier(X, y):
-    model = LogisticRegression()
-    model.fit(X, y)
-    return model
+intro_chunk = """
 """
 
-css_sample = """
-.container {
-    display: flex;
-    justify-content: center;
-    padding: 20px;
-}
-
-.button:hover {
-    background-color: #007bff;
-    cursor: pointer;
-}
+info_chunk = """
 """
 
 
-segments = [python_sample, css_sample]
+segments = [intro_chunk, info_chunk]
 
 if __name__ == "__main__":
     for seg in segments:
@@ -82,7 +73,7 @@ if __name__ == "__main__":
 
         # do not try to use tools on small LLMs
         res: ChatResponse = chat(
-            model=sys_config.OLLAMA_GRANITE_MODEL_4_3B_H,
+            model=sys_config.OLLAMA_GRANITE_MODEL_3_3_8B,
             messages=[system_msg, user_msg],
         )
         print(res.message.content)
