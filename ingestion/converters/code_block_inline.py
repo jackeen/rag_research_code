@@ -8,6 +8,8 @@ from dataclasses import dataclass
 from dataclasses_json import DataClassJsonMixin
 from ollama import ChatResponse, Message, chat
 
+import sys_config
+
 """
 Summarize what this code does in one concise English sentence starting with a verb.
 Start with the programming language in square brackets, e.g. [CSS], [Python], [JavaScript].
@@ -39,6 +41,7 @@ class CodeTag:
         - Summarize what this code does in one concise English sentence starting with a verb
         - Detecte the programming language
         - Output the result by following the given JSON example
+        - Output the raw JSON only. Do not wrap it in markdown code blocks or backticks.
 
         ## Output Example
         {{
@@ -69,6 +72,9 @@ class CodeTag:
         )
 
         tag = res.message.content
+
+        print(tag)
+
         if tag is None:
             return None
         else:
@@ -79,7 +85,7 @@ class CodeTag:
 if __name__ == "__main__":
     # gemma4:e2b
     # granite4:3b-h
-    code_tag = CodeTag("granite4:3b-h")
+    code_tag = CodeTag(sys_config.OLLAMA_GEMMA_MODEL_4_E2B)
     code = """
     ```
     body {
