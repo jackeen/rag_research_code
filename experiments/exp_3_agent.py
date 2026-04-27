@@ -25,12 +25,12 @@ def test_agent_based_on_entity_filter(
         retrieve_similarity=score_limit,
     )
     AgentConfigChoseModel.chose_ollama_llm_model(
-        agent_config, sys_config.OLLAMA_GRANITE_MODEL_4_3B_H
+        agent_config, sys_config.OLLAMA_GEMMA_MODEL_4_E2B
     )
     AgentConfigChoseModel.chose_ollama_embedding(
         config=agent_config,
-        model_name=sys_config.OLLAMA_GRANITE_EMBEDDING_MODEL_768,
-        dimensions=sys_config.OLLAMA_GRANITE_EMBEDDING_MODEL_DIMENSIONS,
+        model_name=sys_config.OLLAMA_GEMMA_EMBEDDING_MODEL_768,
+        dimensions=sys_config.OLLAMA_GEMMA_EMBEDDING_MODEL_DIMENSIONS,
     )
 
     agent = Agent(agent_config)

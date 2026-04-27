@@ -23,7 +23,7 @@ OLLAMA_GRANITE_EMBEDDING_MODEL_768 = "granite-embedding:278m"
 OLLAMA_GRANITE_EMBEDDING_MODEL_DIMENSIONS = 768
 
 # default 768
-OLLAMA_GEMMA_EMBEDDING_MODEL_768 = "embeddinggemma:300m"
+OLLAMA_GEMMA_EMBEDDING_MODEL_768 = "embeddinggemma"
 OLLAMA_GEMMA_EMBEDDING_MODEL_DIMENSIONS = 768
 
 # The cloud model of ollama is powered by ollama cloud service,

@@ -385,12 +385,12 @@ class ChunkPipeline:
             collection_name=collection_name, is_hybrid_search=is_hybrid
         )
         AgentConfigChoseModel.chose_ollama_llm_model(
-            config, sys_config.OLLAMA_GRANITE_MODEL_4_3B_H
+            config, sys_config.OLLAMA_GEMMA_MODEL_4_E2B
         )
         AgentConfigChoseModel.chose_ollama_embedding(
             config=config,
-            model_name=sys_config.OLLAMA_GRANITE_EMBEDDING_MODEL_768,
-            dimensions=sys_config.OLLAMA_GRANITE_EMBEDDING_MODEL_DIMENSIONS,
+            model_name=sys_config.OLLAMA_GEMMA_EMBEDDING_MODEL_768,
+            dimensions=sys_config.OLLAMA_GEMMA_EMBEDDING_MODEL_DIMENSIONS,
         )
 
         ingestor = Ingestor(config)
@@ -708,7 +708,7 @@ def score_chunks_before_ingestion():
         pages_per_topic=8,
         pages_threshold=0.5,
     ).save_chunk_as_csv("exp_3_md_refined_normal_paragraph").ingest(
-        collection_name="exp_3_md_refined_normal_paragraph_chunks_2",
+        collection_name="exp_3_md_refined_normal_paragraph_chunks",
     )
 
 
