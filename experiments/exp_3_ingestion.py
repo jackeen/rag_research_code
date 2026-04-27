@@ -479,7 +479,9 @@ def ingest_book_without_filter():
 
 
 def ingest_book(concepts: list[str], labels: list[str]):
-    """ingestion with keywords filter (not used)"""
+    """
+    ingestion with keywords filter (not used) from PDF source
+    """
     config = AgentConfig(
         collection_name="exp_3_entity_filtered", is_hybrid_search=False
     )
@@ -551,7 +553,7 @@ def ingest_book(concepts: list[str], labels: list[str]):
             "control_keywords": control_keywords,
         }
     )
-    log_path = get_csv_log_path("exp_3_ingestion")
+    log_path = get_csv_log_path("exp_3_kw_ingestion")
     log_df.to_csv(log_path, index=True, encoding="utf-8")
 
 
@@ -654,15 +656,23 @@ def entity_filter_task():
 
 
 def score_chunks_before_ingestion():
-    # pdf_file_path=str(get_book_path(BookNames.RESPONSIVE_WEB_DESIGN_2.value)),
-    # md_file_path=str(get_book_md_path(BookNames.RESPONSIVE_WEB_DESIGN_2.value)),
     kws = load_extracted_entities()
     chunk_pipline = ChunkPipeline(
         kws=kws.gliner,
         labels=kws.cluster,
     )
 
-    ### score filter based on keywords
+    # load book from pdf and
+    # chunk_pipline.load_chunks_from_pdf(
+    #     BookNames.RESPONSIVE_WEB_DESIGN_2.value
+    # ).score_keywords().save_chunk_as_csv("chunks_score")
+
+    # chunks_score is prepared chunks record file for lowering computing time
+    chunk_pipline.load_chunks_from_cache_cvs("chunks_score").filter_keywords(
+        limit=2
+    ).ingest("exp_3_entity_filtered_2")
+
+    ### score filter based on keywords vs features
     # chunk_pipline.load_chunks_from_cache_cvs().score_keywords().score_features().save_chunk_as_csv()
     # chunk_pipline.load_chunks_from_cache_cvs().filter_keywords().filter_features_with_keywords(
     #     0.5, 1
@@ -700,16 +710,16 @@ def score_chunks_before_ingestion():
 
     ### MD methods with label filter
     # refine chunks from db
-    std_answers = load_standard_answers()
-    chunk_pipline.refine_chunks_from_db(
-        base_topics=std_answers,
-        level=1,
-        collection_name="exp_3_md",
-        pages_per_topic=8,
-        pages_threshold=0.5,
-    ).save_chunk_as_csv("exp_3_md_refined_normal_paragraph").ingest(
-        collection_name="exp_3_md_refined_normal_paragraph_chunks",
-    )
+    # std_answers = load_standard_answers()
+    # chunk_pipline.refine_chunks_from_db(
+    #     base_topics=std_answers,
+    #     level=1,
+    #     collection_name="exp_3_md",
+    #     pages_per_topic=8,
+    #     pages_threshold=0.5,
+    # ).save_chunk_as_csv("exp_3_md_refined_normal_paragraph").ingest(
+    #     collection_name="exp_3_md_refined_normal_paragraph_chunks",
+    # )
 
 
 def ingest_std_answers():
@@ -721,15 +731,27 @@ def ingest_std_answers():
 
 
 if __name__ == "__main__":
+    # this ingestion for standard-anwsering collection for result comparison
     # ingest_std_answers()
 
+    # old pipline for keyword filter ingestion, not used
+    # this replaced by new chunk pipline
+    # leave this for compare and note
+    # --------------------------------------------------
     # extract_and_save_keywords()
     # entity_filter_task()
 
+    # This part is for comparison between old pipline
+    # -------------------------------------------------
+    # ingest_book_without_filter()
+
+    # this is not used
+    # initially, it anchor select and collect stragegy planed from keywords
+    # but it was replaced by semantic method powered by LLM or NLI
+    # --------------------------------------------------
     # extract_and_save_anchors()
     # print(load_extracted_anchors())
 
-    # This part is for comparison
-    # ingest_book_without_filter()
-
+    # this is new pipline for exp 3
+    # it can save and load step result
     score_chunks_before_ingestion()

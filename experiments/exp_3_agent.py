@@ -25,12 +25,12 @@ def test_agent_based_on_entity_filter(
         retrieve_similarity=score_limit,
     )
     AgentConfigChoseModel.chose_ollama_llm_model(
-        agent_config, sys_config.OLLAMA_GEMMA_MODEL_4_E2B
+        agent_config, sys_config.OLLAMA_GRANITE_MODEL_4_3B_H
     )
     AgentConfigChoseModel.chose_ollama_embedding(
         config=agent_config,
-        model_name=sys_config.OLLAMA_GEMMA_EMBEDDING_MODEL_768,
-        dimensions=sys_config.OLLAMA_GEMMA_EMBEDDING_MODEL_DIMENSIONS,
+        model_name=sys_config.OLLAMA_GRANITE_EMBEDDING_MODEL_768,
+        dimensions=sys_config.OLLAMA_GRANITE_EMBEDDING_MODEL_DIMENSIONS,
     )
 
     agent = Agent(agent_config)
@@ -101,6 +101,7 @@ if __name__ == "__main__":
     std_collection = "exp_3_std_answer"
 
     # old experiment based on entity match filter
+    filtered_collection_2 = "exp_3_entity_filtered_2"
     filtered_collection = "exp_3_entity_filtered"
     all_collection = "exp_3_entity"
 
@@ -133,10 +134,10 @@ if __name__ == "__main__":
     print(datetime.now().isoformat())
     print("---------------------------")
 
-    # print("Under 20 chunks")
-    # test_agent_based_on_entity_filter(c_name=md_normal_paragraph_2, topk=20)
+    print("Under 20 chunks")
+    test_agent_based_on_entity_filter(c_name=filtered_collection_2, topk=20)
 
     # print("----")
 
     print("Under 4 chunks")
-    test_agent_based_on_entity_filter(c_name=md_normal_paragraph, topk=4)
+    test_agent_based_on_entity_filter(c_name=filtered_collection_2, topk=4)
