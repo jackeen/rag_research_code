@@ -74,12 +74,20 @@ def clean_markdown(file_path: Path):
     pass
 
 
+def generate_slim_book(book_file_name: str, page_ranges: list[tuple[int, int]]):
+    book_path = get_book_path(book_file_name)
+    slim_book_path = get_book_pdf_path(book_path.stem + "_slim")
+    collect_pages_as_new_pdf(str(book_path), str(slim_book_path), page_ranges)
+
+
 if __name__ == "__main__":
     book_2_selected_pages = [(23, 340)]
+    generate_slim_book(BookNames.RESPONSIVE_WEB_DESIGN_2.value, book_2_selected_pages)
 
-    book_2_path = get_book_path(BookNames.RESPONSIVE_WEB_DESIGN_2.value)
-    book_2_slim_path = get_book_pdf_path(book_2_path.stem + "_slim")
-    book_2_slim_md_path = book_2_slim_path.with_suffix(".md")
+    # test
+    # book_2_path = get_book_path(BookNames.RESPONSIVE_WEB_DESIGN_2.value)
+    # book_2_slim_path = get_book_pdf_path(book_2_path.stem + "_slim")
+    # book_2_slim_md_path = book_2_slim_path.with_suffix(".md")
 
     ### select pages
     # collect_pages_as_new_pdf(
