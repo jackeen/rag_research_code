@@ -2,15 +2,17 @@
 The sentence fluency experiment.
 """
 
-from langchain_ollama import ChatOllama
 from langchain_core.output_parsers import StrOutputParser
+from langchain_ollama import ChatOllama
+
 import sys_config
 
 llm = ChatOllama(
     base_url=sys_config.OLLAMA_URL_BASE,
     model=sys_config.OLLAMA_GRANITE_MODEL_4_3B_H,
-    temperature=0
+    temperature=0,
 )
+
 
 def fluency_score(text: str) -> float:
     prompt = f'''
@@ -42,37 +44,12 @@ def fluency_score(text: str) -> float:
     return float(result)
 
 
-if __name__ == '__main__':
-    content = '''
-    However, the cold hard truth is that whilst I fundamentally favor
-    and build sites using the progressive enhancement methodology,
-    there are plenty of instances where I am arguably doing things in a graceful degradation manner.
-    '''
-    content2 = '''
-    W
-    #wrapper div / Setting a context for proportional elements, The incredibly
-    versatile max-width property
-    W3C
-    about / CSS3 enables responsive designs and more
-    / How to write HTML5 pages
-    W3C documentation
-    on multiple background elements, URL / Background shorthand
-    W3C HTML5 validator
-    URL / Saving time and code with HTML5
-    WAI-ARIA
-    used, for adding accessibility to site / Adding accessibility to your site
-    with WAI-ARIA
-    WD / You can use media queries today
-    Webkit (-webkit- ) / Vendor prefixes and how to use them
-    Web Open Font Format (WOFF) / The @font-face CSS rule
-    Webshims Lib
-    URL for downloading / How to polyfill non-supporting browsers
-    web typography
-    about / Custom web typography
-    week input type, HTML5 / week
-    width / What can media queries test for?
-    '''
+if __name__ == "__main__":
+    content = """
+    """
+    content2 = """
+    """
 
-    content3 = """aksdfoaheiadflasjf ksdlf"""
+    content3 = """"""
 
     print(fluency_score(content), fluency_score(content2), fluency_score(content3))

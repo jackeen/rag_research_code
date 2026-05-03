@@ -40,7 +40,7 @@ from tools.data_loader import (
     get_csv_data_path,
     get_csv_log_path,
     get_json_data_path,
-    get_txt_log_path,
+    # get_txt_log_path,
 )
 from tools.similarity import calculate_cosine_similarity
 
@@ -97,7 +97,10 @@ class Chunk:
 
 
 class ChunkPipeline:
-    """Treat the chunks by some ways for filtered chunks"""
+    """
+    Treat the chunks by some ways for filtered chunks,
+    it also can lower the time by store the data after a computing consuming process.
+    """
 
     # target pdf file path for loading data
     # pdf_file_path: str
@@ -654,15 +657,29 @@ def entity_filter_task():
 
 
 def score_chunks_before_ingestion():
-    # pdf_file_path=str(get_book_path(BookNames.RESPONSIVE_WEB_DESIGN_2.value)),
-    # md_file_path=str(get_book_md_path(BookNames.RESPONSIVE_WEB_DESIGN_2.value)),
+
+    # this is working for extract keywords from qustions, chunks for comparing and evaluation
+    # in current research is not used
     kws = load_extracted_entities()
+
+    # the exp 3 includes three stages:
+    # PDF no filter & keywords filter, semanstic filter by LLM, muiti-layer filter.
+    # the pipline can hold all stage
+    # the keywords is not used, but to keep them in the code for recording
     chunk_pipline = ChunkPipeline(
         kws=kws.gliner,
         labels=kws.cluster,
     )
 
-    ### score filter based on keywords
+    ############################## the experiments depends on keywords
+
+    ### keywords match number filter
+    # ! the first stage based on PDF and fixed size chunking
+    # chunk_pipline.load_chunks_from_pdf(
+    #     BookNames.RESPONSIVE_WEB_DESIGN_2.value
+    # ).score_keywords().filter_keywords(limit=1).ingest("target_collection")
+
+    ### score filter based on keywords, not used, not meaningful
     # chunk_pipline.load_chunks_from_cache_cvs().score_keywords().score_features().save_chunk_as_csv()
     # chunk_pipline.load_chunks_from_cache_cvs().filter_keywords().filter_features_with_keywords(
     #     0.5, 1
@@ -699,6 +716,10 @@ def score_chunks_before_ingestion():
     # ).ingest("exp_3_md_refined")
 
     ### MD methods with label filter
+
+    # prepare the middle collection for multi-layer filter
+    # chunk_pipline.load_chunks_from_md("2_slim").ingest("exp_3_md")
+
     # refine chunks from db
     std_answers = load_standard_answers()
     chunk_pipline.refine_chunks_from_db(
@@ -721,15 +742,28 @@ def ingest_std_answers():
 
 
 if __name__ == "__main__":
+    # this ingestion for standard-anwsering collection for result comparison
     # ingest_std_answers()
 
+    # old pipline for keyword filter ingestion, not used
+    # this replaced by new chunk pipline
+    # leave this for compare and note
+    # --------------------------------------------------
     # extract_and_save_keywords()
     # entity_filter_task()
 
+    # This part is for comparison between old pipline
+    # -------------------------------------------------
+    # ingest_book_without_filter()
+
+    # this is not used
+    # initially, it anchor select and collect stragegy planed from keywords
+    # but it was replaced by semantic method powered by LLM or NLI
+    # --------------------------------------------------
     # extract_and_save_anchors()
     # print(load_extracted_anchors())
 
-    # This part is for comparison
-    # ingest_book_without_filter()
+    # this is new pipline for exp 3
+    # it can save and load step result
 
     score_chunks_before_ingestion()

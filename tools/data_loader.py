@@ -92,6 +92,11 @@ def get_csv_log_path(csv_name: str) -> Path:
     return Path(__file__).parent.parent.absolute().joinpath(file_name)
 
 
+def get_no_tail_csv_log_path(csv_name: str) -> Path:
+    file_name = f"logs/{csv_name}.csv"
+    return Path(__file__).parent.parent.absolute().joinpath(file_name)
+
+
 def get_txt_log_path(txt_name: str) -> Path:
     file_name = f"log/{txt_name}_{get_time_stamp_string()}.txt"
     return Path(__file__).parent.parent.absolute().joinpath(file_name)
