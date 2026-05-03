@@ -2,10 +2,13 @@
 The IO of the result of the experiments.
 It appends the results into the Excel file.
 """
+
+from dataclasses import dataclass, fields
 from datetime import datetime
+
 import numpy as np
 from openpyxl import load_workbook
-from dataclasses import dataclass, fields
+
 from .excel_operator import get_excel_data_path
 
 
@@ -15,17 +18,17 @@ class SummaryEntity:
     dataset_version: str
     ingest_file_name: str
 
-    db_collection_name: str
-    question_number: int
-
     model_name: str
     hybrid_retrieving: bool = False
-    dense_embedding_model_name: str = ''
-    sparse_embedding_model_name: str = ''
+    dense_embedding_model_name: str = ""
+    sparse_embedding_model_name: str = ""
 
-    filter_name: str = ''
-    filter_version: str = ''
-    filter_params: str = ''
+    db_collection_name: str | None = None
+    question_number: int = 180
+
+    filter_name: str = ""
+    filter_version: str = ""
+    filter_params: str = ""
 
     chunking_size: int = 100
     chunking_overlap: int = 0
@@ -52,7 +55,7 @@ def append_summary(record: SummaryEntity, similarity_list: list[float]):
     record.median_similarity = round(float(np.median(similarity_list)), 4)
     record.experiment_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
-    summary_path = str(get_excel_data_path('summary'))
+    summary_path = str(get_excel_data_path("summary"))
     wb = load_workbook(summary_path)
     ws = wb[record.experiment_name]
 
@@ -68,17 +71,17 @@ def append_summary(record: SummaryEntity, similarity_list: list[float]):
 
 def test_append_summary():
     summary = SummaryEntity(
-        experiment_name='exp_1_api_gpt',
-        dataset_version='v1',
-        ingest_file_name='all',
-        filter_name='None',
-        model_name='None',
-        db_collection_name='None',
+        experiment_name="exp_1_api_gpt",
+        dataset_version="v1",
+        ingest_file_name="all",
+        filter_name="None",
+        model_name="None",
+        db_collection_name="None",
         question_number=2,
     )
     append_summary(summary, [0.3, 0.6])
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     # test_append_summary()
     pass
