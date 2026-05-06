@@ -3,8 +3,7 @@ This experiment based on beta RAG system for testing keywords filter.
 """
 
 import dataclasses
-from collections import Counter
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Self
 
 import numpy as np
@@ -23,7 +22,13 @@ from sklearn.feature_extraction.text import TfidfVectorizer
 
 import sys_config
 from beta.ingestor import AgentConfig, AgentConfigChoseModel, Ingestor
-from ingestion.filters.anchor import AnchorCollector, AnchorSelector, Segment, Topic
+from ingestion.filters.anchor import (
+    AnchorCollector,
+    AnchorSelector,
+    Segment,
+    SemanticModules,
+    Topic,
+)
 from ingestion.kg_builder.entity import (
     Entity,
     cluster_keys,
@@ -33,6 +38,8 @@ from ingestion.kg_builder.entity import (
 )
 from tools.data_loader import (
     BookNames,
+    PageGroupNames,
+    PageGroupRanges,
     References,
     get_book_md_path,
     get_book_path,
@@ -44,11 +51,10 @@ from tools.data_loader import (
 )
 from tools.similarity import calculate_cosine_similarity
 
+from .exp_3_config import CollectionNames
+
 # this file is for the process pass and cache entities
 KEYWORD_JSON_FILENAME = "exp_3_keywords"
-
-# this file is for caching the semanstic anchors (topic) depending on std_answers
-ANCHOR_JSON_FILENAME = "exp_3_chunk_anchors"
 
 # for gliner extraction
 GLINER_THRESHOLD = 0.3
@@ -70,14 +76,6 @@ class KeyWords(DataClassJsonMixin):
 
 
 @dataclass
-class Anchors(DataClassJsonMixin):
-    """"""
-
-    topic_content_list: list[str] = field(default_factory=list)
-    anchor_list: list[list[str]] = field(default_factory=list)
-
-
-@dataclass
 class Chunk:
     """This is the progressing record for score in several dimensions"""
 
@@ -86,10 +84,6 @@ class Chunk:
     matched_keywords: str = ""
     feature_words: str = ""
     content_keywords: str = ""
-    KFS: float = 0.0
-    summary: str = ""
-    is_code: bool = False
-    fluency_score: float = 0.0
     header_1: str = ""
     header_2: str = ""
     header_3: str = ""
@@ -122,16 +116,20 @@ class ChunkPipeline:
     # the splitter for keywords stored in db and inner of class
     KEYWORDS_SPLITTER: str = "|"
 
-    def __init__(self, kws: list[str], labels: list[str]):
+    def __init__(
+        self,
+        kws: list[str] = [],
+        labels: list[str] = [],
+    ):
         # self.pdf_file_path = pdf_file_path
         # self.md_file_path = md_file_path
         self.gliner_global_keywords = kws
         self.gliner_labels = labels
-        self.llm = ChatOllama(
-            base_url=sys_config.OLLAMA_URL_BASE,
-            model=sys_config.OLLAMA_GRANITE_MODEL_4_3B_H,
-            temperature=0,
-        )
+        # self.llm = ChatOllama(
+        #     base_url=sys_config.OLLAMA_URL_BASE,
+        #     model=llm_name,
+        #     temperature=0,
+        # )
         self.cache_file_path = str(get_csv_data_path("chunks"))
 
     def save_chunk_as_csv(self, target_file: str = "") -> Self:
@@ -216,6 +214,18 @@ class ChunkPipeline:
 
         return self
 
+    def _get_intersection(
+        self, doc_keywords: list[str], s_keywords: list[str], threshold: float = 0.7
+    ) -> list[str]:
+        intersection: list[str] = []
+        for sk in s_keywords:
+            for dk in doc_keywords:
+                if calculate_cosine_similarity([sk], [dk])[0] > threshold:
+                    intersection.append(dk)
+            # if len(intersection) > 0:
+            #     break
+        return intersection
+
     def score_keywords(self) -> Self:
         """Extract the chunks' keywords based on provided labels, figure out the matched keywords"""
         for i, chunk in enumerate(self.chunks):
@@ -223,7 +233,7 @@ class ChunkPipeline:
                 chunk.content, self.gliner_labels, GLINER_THRESHOLD
             )
             content_kws = [e.text.lower() for e in content_entities]
-            matched_kws = get_intersection(
+            matched_kws = self._get_intersection(
                 content_kws, self.gliner_global_keywords, ENTITY_INTERSECTION_THRESHOLD
             )
             chunk.content_keywords = self.KEYWORDS_SPLITTER.join(content_kws)
@@ -263,47 +273,18 @@ class ChunkPipeline:
 
         return self
 
-    def filter_features_with_keywords(self, min: float = 0.6, max: float = 1.0) -> Self:
-        filtered_chunks: list[Chunk] = []
-        for c in self.chunks:
-            KFS = calculate_cosine_similarity([c.feature_words], [c.content_keywords])[
-                0
-            ]
-            if min <= KFS <= max:
-                c.KFS = KFS
-                filtered_chunks.append(c)
-        self.chunks = filtered_chunks
-        return self
-
-    def filter_keywords_statistics(self, threshold: float = 0.5) -> Self:
-        filtered_chunks: list[Chunk] = []
-        for chunk in self.chunks:
-            kws = chunk.content_keywords
-            kws_list = kws.split(self.KEYWORDS_SPLITTER)
-            counter = Counter(kws_list)
-            total_words_n = len(kws_list)
-            if total_words_n < 4:
-                continue
-            for _, count in counter.most_common():
-                ratio = count / total_words_n
-                if ratio <= threshold:
-                    filtered_chunks.append(chunk)
-                    break
-
-        self.chunks = filtered_chunks
-        return self
-
-    def refine_md_chunks_by_llm(self, std_answers: list[str]) -> Self:
+    def refine_md_chunks_by_llm(self, std_answers: list[str], llm_name: str) -> Self:
+        """Powered by given ollama llm"""
         # init the collector
         anchor_collector = AnchorCollector(
             ollama_url=sys_config.OLLAMA_URL_BASE,
-            ollama_model=sys_config.OLLAMA_GRANITE_MODEL_4_3B_H,
+            ollama_model=llm_name,
         )
 
         # generate segments
         segments: list[Segment] = []
-        for chunk in self.chunks:
-            seg = Segment(content=chunk.content)
+        for c in self.chunks:
+            seg = Segment(content=c.content)
             segments.append(seg)
 
         # generage topics
@@ -319,9 +300,9 @@ class ChunkPipeline:
 
         refined_chunks: list[Chunk] = []
         for chunk_str in refined_list:
-            for chunk in self.chunks:
-                if chunk.content == chunk_str:
-                    refined_chunks.append(chunk)
+            for c in self.chunks:
+                if c.content == chunk_str:
+                    refined_chunks.append(c)
 
         self.chunks = refined_chunks
         return self
@@ -330,20 +311,28 @@ class ChunkPipeline:
         self,
         base_topics: list[str],
         level: int,
+        is_skip_code_paragraph: bool,
+        semantic_module: SemanticModules,
         collection_name: str,
         pages_per_topic: int,
         pages_threshold: float,
+        llm_name: str,
+        embedding_model: str,
     ) -> Self:
         """
         Refine the related chunks from database by cosine score.
         The implement is leveraging qdrant query method and algorithms.
+        The embedding model is for retriving from the db, and the llm model is for comparing chunks.
         level: 0 - page level, 1 - paragraph level
+        is_skip_code_paragraph: it is effective only when level is 1
         """
+
         anchor_selector = AnchorSelector(
-            host=sys_config.QDRANT_HOST,
-            port=sys_config.QDRANT_PORT,
-            dense_embedding_model=sys_config.OLLAMA_GRANITE_EMBEDDING_MODEL_768,
-            code_tag_model=sys_config.OLLAMA_GRANITE_MODEL_4_3B_H,
+            qdrant_host=sys_config.QDRANT_HOST,
+            qdrant_port=sys_config.QDRANT_PORT,
+            dense_embedding_model=embedding_model,
+            ollama_url=sys_config.OLLAMA_URL_BASE,
+            ollama_model=llm_name,
         )
 
         # wrap str topics as objects
@@ -363,11 +352,16 @@ class ChunkPipeline:
 
         if level == 0:
             anchor_selector.get_selected_page_chunk_str_list(refined_content_list)
+            print(f"layer one: get {len(refined_content_list)} candidate chunks")
 
         if level == 1:
-            anchor_selector.refine_paragrahp_chunks().get_hybrid_chunks_str_list(
-                refined_content_list
-            )
+            anchor_selector.refine_paragrahp_chunks(
+                semantic_module, is_drop_code=is_skip_code_paragraph
+            ).get_hybrid_chunks_str_list(refined_content_list)
+            print(f"layer two: get {len(refined_content_list)} semanstic chunks")
+
+        # remove duplicated
+        refined_content_list = list(set(refined_content_list))
 
         # wrap str chunks as objects
         refined_chunks: list[Chunk] = []
@@ -378,22 +372,21 @@ class ChunkPipeline:
 
         return self
 
-    # def refine_paragraph_chunks_from_page_chunks(self) -> Self:
-    #     return self
-
     def ingest(
-        self, collection_name: str = "exp_3_entity_filtered", is_hybrid=False
+        self,
+        embedding_name: str,
+        embedding_dim: int,
+        collection_name: str,
+        is_hybrid=False,
+        group_ref: str = "",
     ) -> Self:
         config = AgentConfig(
             collection_name=collection_name, is_hybrid_search=is_hybrid
         )
-        AgentConfigChoseModel.chose_ollama_llm_model(
-            config, sys_config.OLLAMA_GEMMA_MODEL_4_E2B
-        )
         AgentConfigChoseModel.chose_ollama_embedding(
             config=config,
-            model_name=sys_config.OLLAMA_GEMMA_EMBEDDING_MODEL_768,
-            dimensions=sys_config.OLLAMA_GEMMA_EMBEDDING_MODEL_DIMENSIONS,
+            model_name=embedding_name,
+            dimensions=embedding_dim,
         )
 
         ingestor = Ingestor(config)
@@ -407,7 +400,6 @@ class ChunkPipeline:
                 metadata={
                     "keywords": str(c.content_keywords).split(self.KEYWORDS_SPLITTER),
                     "features": str(c.feature_words).split(self.KEYWORDS_SPLITTER),
-                    "KFS": c.KFS,
                     "header_1": c.header_1,
                     "header_2": c.header_2,
                     "header_3": c.header_3,
@@ -419,149 +411,38 @@ class ChunkPipeline:
         # save the chunks in vector database
         ingestor.save_docs(
             docs=docs,
-            file_ref=References.RESPONSIVE_WEB_DESIGN_2.value,
+            file_ref=group_ref,
         )
 
         # output ingestion logs
         log_df = pd.DataFrame(
             {
-                "chunks": [chunk.content for chunk in self.chunks],
+                "chunks": [c.content for c in self.chunks],
             }
         )
-        log_path = get_csv_log_path("exp_3_ingestion")
+        log_path = get_csv_log_path("slim_exp_3_ingestion")
         log_df.to_csv(log_path, index=True, encoding="utf-8")
 
         return self
 
 
-def get_intersection(
-    doc_keywords: list[str], s_keywords: list[str], threshold: float = 0.7
-) -> list[str]:
-    intersection: list[str] = []
-    for sk in s_keywords:
-        for dk in doc_keywords:
-            if calculate_cosine_similarity([sk], [dk])[0] > threshold:
-                intersection.append(dk)
-        # if len(intersection) > 0:
-        #     break
-    return intersection
-
-
-def ingest_book_without_filter():
-    config = AgentConfig(
-        collection_name="exp_3_entity",
-    )
-    AgentConfigChoseModel.chose_ollama_llm_model(
-        config, sys_config.OLLAMA_GRANITE_MODEL_4_3B_H
-    )
-    AgentConfigChoseModel.chose_ollama_embedding(
-        config=config,
-        model_name=sys_config.OLLAMA_GRANITE_EMBEDDING_MODEL_768,
-        dimensions=sys_config.OLLAMA_GRANITE_EMBEDDING_MODEL_DIMENSIONS,
-    )
-
-    ingestor = Ingestor(config)
-    ingestor.use_ollama_embeddings()
-    ingestor.force_create_collection()
-
-    # pymupdf4llm try this later
-    loader = PyMuPDFLoader(str(get_book_path(BookNames.RESPONSIVE_WEB_DESIGN_2.value)))
-    loaded_docs = loader.load()
-
-    text_splitter = RecursiveCharacterTextSplitter(
-        chunk_size=500,
-        chunk_overlap=100,
-        separators=[r"(?<=[。！？\.!?])\s"],
-        # separators=["\n\n", "\n", r"(?<=[.!?])\s", " "],
-        is_separator_regex=True,
-    )
-
-    # loaded_docs[23:]
-    docs = text_splitter.split_documents(loaded_docs)
-    ingestor.save_docs(docs, References.RESPONSIVE_WEB_DESIGN_2.value)
-
-
-def ingest_book(concepts: list[str], labels: list[str]):
-    """ingestion with keywords filter (not used)"""
-    config = AgentConfig(
-        collection_name="exp_3_entity_filtered", is_hybrid_search=False
-    )
-    AgentConfigChoseModel.chose_ollama_llm_model(
-        config, sys_config.OLLAMA_GRANITE_MODEL_4_3B_H
-    )
-    AgentConfigChoseModel.chose_ollama_embedding(
-        config=config,
-        model_name=sys_config.OLLAMA_GRANITE_EMBEDDING_MODEL_768,
-        dimensions=sys_config.OLLAMA_GRANITE_EMBEDDING_MODEL_DIMENSIONS,
-    )
-
-    ingestor = Ingestor(config)
-    ingestor.use_ollama_embeddings()
-    ingestor.force_create_collection()
-
-    # prepare data for chunking
-    loader = PyMuPDFLoader(str(get_book_path(BookNames.RESPONSIVE_WEB_DESIGN_2.value)))
-    loaded_docs = loader.load()
-
-    # the GLiner support 512 tokens, one token about 3 to 4 characters
-    text_splitter = RecursiveCharacterTextSplitter(
-        chunk_size=500,
-        chunk_overlap=100,
-        separators=[r"(?<=[。！？\.!?])\s"],
-        # separators=["\n\n", "\n", r"(?<=[.!?])\s", " "],
-        is_separator_regex=True,
-    )
-
-    # loaded_docs[23:]
-    docs = text_splitter.split_documents(loaded_docs)
-
-    # for chunk log
-    control_group = ", ".join([c for c in concepts])
-    contents = []
-    control_keywords = []
-    contents_keywords = []
-    matched_numbers = []
-
-    filtered_docs = []
-    for _, doc in enumerate(docs):
-        doc_entities = combine_entities(
-            gliner_extraction(doc.page_content, labels, GLINER_THRESHOLD)
-        )
-        doc_keywords = [entity.text for entity in doc_entities]
-        matched_words = get_intersection(
-            doc_keywords, concepts, ENTITY_INTERSECTION_THRESHOLD
-        )
-
-        if len(matched_words) > 0:
-            doc.metadata["keywords"] = doc_keywords
-            doc.metadata["matched_keywords"] = matched_words
-            filtered_docs.append(doc)
-
-        # for chunk log
-        contents.append(doc.page_content)
-        control_keywords.append(control_group)
-        contents_keywords.append(", ".join(doc_keywords))
-        matched_numbers.append(len(matched_words))
-
-    ingestor.save_docs(filtered_docs, References.RESPONSIVE_WEB_DESIGN_2.value)
-    print(f"{len(filtered_docs)} filtered chunks saved")
-
-    log_df = pd.DataFrame(
-        {
-            "chunks": contents,
-            "matched_numbers": matched_numbers,
-            "chunk_keywords": contents_keywords,
-            "control_keywords": control_keywords,
-        }
-    )
-    log_path = get_csv_log_path("exp_3_ingestion")
-    log_df.to_csv(log_path, index=True, encoding="utf-8")
-
-
-def load_standard_answers() -> list[str]:
+def load_standard_answers(file_name: str, start: int, end: int) -> list[str]:
     """
-    Load the source of entities about Responsive Web Design
-    :return: the list of questions
+    Load the source of answers by given indexes,
+    for example: 30,60 get book 2 anwers
+    Arguments:
+        start: the start index of answers list, from 1
+        end: the end index of answers list
+    return: the list of questions
+    """
+    df = pd.read_csv(str(get_csv_data_path(file_name)))
+    source_df = df["standard_answers"]
+    return source_df[start:end].dropna().tolist()
+
+
+def load_group_2_standard_answers() -> list[str]:
+    """
+    Load the source of answers associated with pages of book 2
     """
     df = pd.read_csv(str(get_csv_data_path("questions_and_answers")))
     source_df = df["standard_answers"]
@@ -574,7 +455,7 @@ def print_splitter_with_head(head: str):
 
 
 def extract_and_save_keywords():
-    entity_source = load_standard_answers()
+    entity_source = load_group_2_standard_answers()
 
     concepts_list_spacy: list[str] = []
     concepts_list: list[Entity] = []
@@ -617,46 +498,7 @@ def load_extracted_entities() -> KeyWords:
         return kw
 
 
-def extract_and_save_anchors():
-    entity_source = load_standard_answers()
-    anchors = Anchors()
-    for c in entity_source:
-        anchors.topic_content_list.append(c)
-        concept_list = concepts_extraction(c)
-
-        anchors.anchor_list.append(concept_list)
-        # next part should to do more work for exceptions for better result
-        # this part can also use other methods, not be only limited
-        # if len(concept_list) <= 2:
-        #     anchors.anchor_list.append(concept_list)
-        #     continue
-
-        # labels = cluster_keys(concept_list)
-        # x = [concept.text for concept in gliner_extraction(c, labels, GLINER_THRESHOLD)]
-        # anchors.anchor_list.append(x)
-
-    with open(get_json_data_path(ANCHOR_JSON_FILENAME), "w", encoding="utf-8") as f:
-        f.write(anchors.to_json(indent=2))
-
-    print("Anchors file writing is finished")
-
-
-def load_extracted_anchors() -> Anchors:
-    with open(get_json_data_path(ANCHOR_JSON_FILENAME), "r", encoding="utf-8") as f:
-        anchors = Anchors.from_json(f.read())
-        return anchors
-
-
-def entity_filter_task():
-    """Ingest the documents by entity filter"""
-    kw = load_extracted_entities()
-    print(f"Ingestion task loads keywords: {kw}")
-
-    # use the given keywords for ingestion
-    ingest_book(kw.gliner, kw.cluster)
-
-
-def score_chunks_before_ingestion():
+def exploring_ingestion_piplines():
 
     # this is working for extract keywords from qustions, chunks for comparing and evaluation
     # in current research is not used
@@ -671,99 +513,275 @@ def score_chunks_before_ingestion():
         labels=kws.cluster,
     )
 
-    ############################## the experiments depends on keywords
+    ### First stage: keywords match number filter
+    # based on PDF and fixed size chunking
 
-    ### keywords match number filter
-    # ! the first stage based on PDF and fixed size chunking
-    # chunk_pipline.load_chunks_from_pdf(
-    #     BookNames.RESPONSIVE_WEB_DESIGN_2.value
-    # ).score_keywords().filter_keywords(limit=1).ingest("target_collection")
+    FIXED_CHUNKS = "p_fixed_chunks"
+    FIXED_CHUNKS_KW_SCORE = "p_fixed_chunks_kw_score"
 
-    ### score filter based on keywords, not used, not meaningful
-    # chunk_pipline.load_chunks_from_cache_cvs().score_keywords().score_features().save_chunk_as_csv()
-    # chunk_pipline.load_chunks_from_cache_cvs().filter_keywords().filter_features_with_keywords(
-    #     0.5, 1
-    # ).save_chunk_as_csv()
+    # fixed chunking without filtering
+    chunk_pipline.load_chunks_from_pdf(
+        PageGroupNames.RESPONSIVE_WEB_DESIGN_2.value
+    ).score_keywords().save_chunk_as_csv(FIXED_CHUNKS).ingest(
+        embedding_name=sys_config.OLLAMA_GRANITE_EMBEDDING_MODEL_768,
+        embedding_dim=sys_config.OLLAMA_GRANITE_EMBEDDING_MODEL_DIMENSIONS,
+        collection_name=CollectionNames.FIX_CHUNKING.value,
+    )
 
-    # chunk_pipline.load_chunks_from_cache_cvs().filter_keywords_statistics().save_chunk_as_csv(
-    #     "chunks_statistics"
-    # )
+    # keywords score for next filtering
+    chunk_pipline.load_chunks_from_cache_cvs(
+        FIXED_CHUNKS
+    ).score_keywords().save_chunk_as_csv(FIXED_CHUNKS_KW_SCORE)
 
-    # chunk_pipline.load_chunks_from_cache_cvs(
-    #     "chunks_backup"
-    # ).score_features().score_keywords().save_chunk_as_csv("chunks_score")
+    chunk_pipline.load_chunks_from_cache_cvs(FIXED_CHUNKS_KW_SCORE).filter_keywords(
+        limit=1
+    ).ingest(
+        embedding_name=sys_config.OLLAMA_GRANITE_EMBEDDING_MODEL_768,
+        embedding_dim=sys_config.OLLAMA_GRANITE_EMBEDDING_MODEL_DIMENSIONS,
+        collection_name=CollectionNames.FIX_CHUNKING_1_KEYWORD.value,
+    )
 
-    # chunk_pipline.load_chunks_from_cache_cvs(
-    #     "chunks_score"
-    # ).filter_features_with_keywords(0.3, 1.0).ingest()
+    chunk_pipline.load_chunks_from_cache_cvs(FIXED_CHUNKS_KW_SCORE).filter_keywords(
+        limit=2
+    ).ingest(
+        embedding_name=sys_config.OLLAMA_GRANITE_EMBEDDING_MODEL_768,
+        embedding_dim=sys_config.OLLAMA_GRANITE_EMBEDDING_MODEL_DIMENSIONS,
+        collection_name=CollectionNames.FIX_CHUNKING_2_KEYWORDS.value,
+    )
 
-    # chunk_pipline.load_chunks_from_cache_cvs("chunks_score").filter_keywords().ingest()
+    ### Second stage: semantic filter
+    # based on header chunking and LLM semantic filter
+    # computing consuming M*N
 
-    ############################## the upper method is old experiments
+    # MD method without filter
+    chunk_pipline.load_chunks_from_md(
+        PageGroupNames.RESPONSIVE_WEB_DESIGN_2.value
+    ).ingest(
+        embedding_name=sys_config.OLLAMA_GRANITE_EMBEDDING_MODEL_768,
+        embedding_dim=sys_config.OLLAMA_GRANITE_EMBEDDING_MODEL_DIMENSIONS,
+        collection_name=CollectionNames.MD_HEAD_CHUNKING.value,
+    )
 
-    ### MD methods
-    # chunk_pipline.load_chunks_from_md("2_slim").save_chunk_as_csv("chunks_md").ingest(
-    #     "exp_3_md"
-    # )
-    # chunk_pipline.load_chunks_from_cache_cvs("chunks_md").ingest("exp_3_md")
+    # MD method with llm filter depend on low quality md file
+    std_answers = load_group_2_standard_answers()
 
-    ### MD methods with llm filter (not used)
-    # leverage llm to figure out each chunk that suitable for topics
-    # this costs about one hour, lower 19% chunks
-    # std_answers = load_standard_answers()
-    # chunk_pipline.load_chunks_from_cache_cvs("chunks_md").refine_md_chunks_by_llm(
-    #     std_answers
-    # ).ingest("exp_3_md_refined")
+    chunk_pipline.load_chunks_from_md(
+        PageGroupNames.RESPONSIVE_WEB_DESIGN_2.value
+    ).refine_md_chunks_by_llm(
+        std_answers, sys_config.OLLAMA_GRANITE_MODEL_4_3B_H
+    ).ingest(
+        embedding_name=sys_config.OLLAMA_GRANITE_EMBEDDING_MODEL_768,
+        embedding_dim=sys_config.OLLAMA_GRANITE_EMBEDDING_MODEL_DIMENSIONS,
+        collection_name=CollectionNames.MD_HEAD_CHUNKING_LLM.value,
+    )
 
-    ### MD methods with label filter
+    ### Third stage: multi layer filter
+    # based on header chunking and cosine and LLM semantic filter
+    # to lower the computing cost
 
-    # prepare the middle collection for multi-layer filter
-    # chunk_pipline.load_chunks_from_md("2_slim").ingest("exp_3_md")
+    std_answers = load_group_2_standard_answers()
 
-    # refine chunks from db
-    std_answers = load_standard_answers()
+    # layers filter, the db source is from the result of md chunking without filter
+    # so the query embedding should follow it
+    chunk_pipline.refine_chunks_from_db(
+        base_topics=std_answers,
+        level=0,
+        is_skip_code_paragraph=False,
+        semantic_module=SemanticModules.LLM,
+        collection_name=CollectionNames.MD_HEAD_CHUNKING.value,
+        pages_per_topic=4,
+        pages_threshold=0.5,
+        llm_name=sys_config.OLLAMA_GRANITE_MODEL_4_3B_H,
+        embedding_model=sys_config.OLLAMA_GRANITE_EMBEDDING_MODEL_768,
+    ).ingest(
+        embedding_name=sys_config.OLLAMA_GRANITE_EMBEDDING_MODEL_768,
+        embedding_dim=sys_config.OLLAMA_GRANITE_EMBEDDING_MODEL_DIMENSIONS,
+        collection_name=CollectionNames.MD_HEAD_CHUNKING_ML_PAGE.value,
+    )
+
+    # increase cosine output from 4 to 8
+    chunk_pipline.refine_chunks_from_db(
+        base_topics=std_answers,
+        level=0,
+        is_skip_code_paragraph=False,
+        semantic_module=SemanticModules.LLM,
+        collection_name=CollectionNames.MD_HEAD_CHUNKING.value,
+        pages_per_topic=8,
+        pages_threshold=0.5,
+        llm_name=sys_config.OLLAMA_GRANITE_MODEL_4_3B_H,
+        embedding_model=sys_config.OLLAMA_GRANITE_EMBEDDING_MODEL_768,
+    ).ingest(
+        embedding_name=sys_config.OLLAMA_GRANITE_EMBEDDING_MODEL_768,
+        embedding_dim=sys_config.OLLAMA_GRANITE_EMBEDDING_MODEL_DIMENSIONS,
+        collection_name=CollectionNames.MD_HEAD_CHUNKING_ML_PAGE_CONSINE_8_CHUNK.value,
+    )
+
+    # use smaller chunk
     chunk_pipline.refine_chunks_from_db(
         base_topics=std_answers,
         level=1,
-        collection_name="exp_3_md",
+        is_skip_code_paragraph=False,
+        semantic_module=SemanticModules.LLM,
+        collection_name=CollectionNames.MD_HEAD_CHUNKING.value,
         pages_per_topic=8,
         pages_threshold=0.5,
-    ).save_chunk_as_csv("exp_3_md_refined_normal_paragraph").ingest(
-        collection_name="exp_3_md_refined_normal_paragraph_chunks",
+        llm_name=sys_config.OLLAMA_GRANITE_MODEL_4_3B_H,
+        embedding_model=sys_config.OLLAMA_GRANITE_EMBEDDING_MODEL_768,
+    ).ingest(
+        embedding_name=sys_config.OLLAMA_GRANITE_EMBEDDING_MODEL_768,
+        embedding_dim=sys_config.OLLAMA_GRANITE_EMBEDDING_MODEL_DIMENSIONS,
+        collection_name=CollectionNames.MD_HEAD_CHUNKING_ML_PARAGRAPH.value,
+    )
+
+    # use smaller chunk without code
+    chunk_pipline.refine_chunks_from_db(
+        base_topics=std_answers,
+        level=1,
+        is_skip_code_paragraph=True,
+        semantic_module=SemanticModules.LLM,
+        collection_name=CollectionNames.MD_HEAD_CHUNKING.value,
+        pages_per_topic=8,
+        pages_threshold=0.5,
+        llm_name=sys_config.OLLAMA_GRANITE_MODEL_4_3B_H,
+        embedding_model=sys_config.OLLAMA_GRANITE_EMBEDDING_MODEL_768,
+    ).ingest(
+        embedding_name=sys_config.OLLAMA_GRANITE_EMBEDDING_MODEL_768,
+        embedding_dim=sys_config.OLLAMA_GRANITE_EMBEDDING_MODEL_DIMENSIONS,
+        collection_name=CollectionNames.MD_HEAD_CHUNKING_ML_PARAGRAPH_NO_CODE.value,
+    )
+
+    # use NLI as the semantic layer, future work
+    # chunk_pipline.refine_chunks_from_db(
+    #     base_topics=std_answers,
+    #     level=1,
+    #     is_skip_code_paragraph=False,
+    #     semantic_module=SemanticModules.NLI,
+    #     collection_name=CollectionNames.MD_HEAD_CHUNKING.value,
+    #     pages_per_topic=8,
+    #     pages_threshold=0.5,
+    #     llm_name=sys_config.OLLAMA_GRANITE_MODEL_4_3B_H,
+    #     embedding_model=sys_config.OLLAMA_GRANITE_EMBEDDING_MODEL_768,
+    # ).ingest(
+    #     embedding_name=sys_config.OLLAMA_GRANITE_EMBEDDING_MODEL_768,
+    #     embedding_dim=sys_config.OLLAMA_GRANITE_EMBEDDING_MODEL_DIMENSIONS,
+    #     collection_name=CollectionNames.MD_HEAD_CHUNKING_ML_PARAGRAPH_NLI.value,
+    # )
+
+    # use Gemma as the semantic layer
+    chunk_pipline.refine_chunks_from_db(
+        base_topics=std_answers,
+        level=1,
+        is_skip_code_paragraph=False,
+        semantic_module=SemanticModules.LLM,
+        collection_name=CollectionNames.MD_HEAD_CHUNKING.value,
+        pages_per_topic=8,
+        pages_threshold=0.5,
+        llm_name=sys_config.OLLAMA_GEMMA_MODEL_4_E2B,
+        embedding_model=sys_config.OLLAMA_GRANITE_EMBEDDING_MODEL_768,
+    ).ingest(
+        embedding_name=sys_config.OLLAMA_GRANITE_EMBEDDING_MODEL_768,
+        embedding_dim=sys_config.OLLAMA_GRANITE_EMBEDDING_MODEL_DIMENSIONS,
+        collection_name=CollectionNames.MD_HEAD_CHUNKING_ML_PARAGRAPH_GEMMA.value,
+    )
+
+    # use Gemma ingestion, which means the all process is depended on GEMMA
+    # in this stage, the QA process should also use GEMMA
+
+    # update the source db by GEMMA embedding
+    chunk_pipline.load_chunks_from_md(
+        PageGroupNames.RESPONSIVE_WEB_DESIGN_2.value
+    ).ingest(
+        embedding_name=sys_config.OLLAMA_GEMMA_EMBEDDING_MODEL_768,
+        embedding_dim=sys_config.OLLAMA_GEMMA_EMBEDDING_MODEL_DIMENSIONS,
+        collection_name=CollectionNames.MD_HEAD_CHUNKING_2.value,
+    )
+
+    chunk_pipline.refine_chunks_from_db(
+        base_topics=std_answers,
+        level=1,
+        is_skip_code_paragraph=False,
+        semantic_module=SemanticModules.LLM,
+        collection_name=CollectionNames.MD_HEAD_CHUNKING_2.value,
+        pages_per_topic=8,
+        pages_threshold=0.5,
+        llm_name=sys_config.OLLAMA_GEMMA_MODEL_4_E2B,
+        embedding_model=sys_config.OLLAMA_GEMMA_EMBEDDING_MODEL_768,
+    ).ingest(
+        embedding_name=sys_config.OLLAMA_GEMMA_EMBEDDING_MODEL_768,
+        embedding_dim=sys_config.OLLAMA_GEMMA_EMBEDDING_MODEL_DIMENSIONS,
+        collection_name=CollectionNames.MD_HEAD_CHUNKING_ML_PARAGRAPH_GEMMA.value,
     )
 
 
-def ingest_std_answers():
-    std_answers = load_standard_answers()
-    kws = load_extracted_entities()
-    pipline = ChunkPipeline(kws.gliner, kws.cluster)
-    pipline.chunks = [Chunk(content=answer) for answer in std_answers]
-    pipline.ingest("exp_3_std_answer")
+def extended_ingestion(
+    md_file_name: str,
+    source_c_name: str,
+    target_c_name: str,
+    topics: list[str],
+    group_ref: str,
+):
+    """other group sets"""
+    chunk_pipline = ChunkPipeline()
+
+    # prepare first layer db
+    chunk_pipline.load_chunks_from_md(md_file_name).ingest(
+        embedding_name=sys_config.OLLAMA_GEMMA_EMBEDDING_MODEL_768,
+        embedding_dim=sys_config.OLLAMA_GEMMA_EMBEDDING_MODEL_DIMENSIONS,
+        collection_name=source_c_name,
+    )
+
+    # collect varified chunks from the temp db
+    chunk_pipline.refine_chunks_from_db(
+        base_topics=topics,
+        level=1,
+        is_skip_code_paragraph=False,
+        semantic_module=SemanticModules.LLM,
+        collection_name=source_c_name,
+        pages_per_topic=8,
+        pages_threshold=0.5,
+        llm_name=sys_config.OLLAMA_GEMMA_MODEL_4_E2B,
+        embedding_model=sys_config.OLLAMA_GEMMA_EMBEDDING_MODEL_768,
+    ).ingest(
+        embedding_name=sys_config.OLLAMA_GEMMA_EMBEDDING_MODEL_768,
+        embedding_dim=sys_config.OLLAMA_GEMMA_EMBEDDING_MODEL_DIMENSIONS,
+        collection_name=target_c_name,
+        group_ref=group_ref,
+    )
 
 
 if __name__ == "__main__":
-    # this ingestion for standard-anwsering collection for result comparison
-    # ingest_std_answers()
-
-    # old pipline for keyword filter ingestion, not used
-    # this replaced by new chunk pipline
-    # leave this for compare and note
-    # --------------------------------------------------
+    # in practice, the topic is manitained by manager for limiting the chat area
+    # in experiment stage, the standard answers (groundtruth) is used as topic
+    # to prepare keywords, just need to run once
+    # the topic is also used to filter the chunks by semantic comparison in multi layer filter pipline
     # extract_and_save_keywords()
-    # entity_filter_task()
 
-    # This part is for comparison between old pipline
-    # -------------------------------------------------
-    # ingest_book_without_filter()
+    # in exploring stage, only focus on one group (2) data
+    # exploring_ingestion_piplines()
 
-    # this is not used
-    # initially, it anchor select and collect stragegy planed from keywords
-    # but it was replaced by semantic method powered by LLM or NLI
-    # --------------------------------------------------
-    # extract_and_save_anchors()
-    # print(load_extracted_anchors())
+    # in extension stage, use the best options of filter to test other page groups
+    topics_1 = load_standard_answers("questions_and_answers", 0, 30)
+    extended_ingestion(
+        md_file_name=PageGroupNames.INTRO_WEB_DEV_1.value,
+        source_c_name=CollectionNames.MD_HEAD_CHUNKING_PAGES_GROUP_1_TMP.value,
+        target_c_name=CollectionNames.MD_HEAD_CHUNKING_PAGES_GROUP_1.value,
+        topics=topics_1,
+        group_ref=References.INTRO_WEB_DEV_1.value,
+    )
 
-    # this is new pipline for exp 3
-    # it can save and load step result
-
-    score_chunks_before_ingestion()
+    # extended_ingestion(
+    #     PageGroupNames.LEARNING_REACT_4.value,
+    #     CollectionNames.MD_HEAD_CHUNKING_PAGES_GROUP_4.value,
+    # )
+    # extended_ingestion(
+    #     PageGroupNames.DESIGN_PATTERN_5.value,
+    #     CollectionNames.MD_HEAD_CHUNKING_PAGES_GROUP_5.value,
+    # )
+    # extended_ingestion(
+    #     PageGroupNames.STRUCTURE_INTERPRETATION_6.value,
+    #     CollectionNames.MD_HEAD_CHUNKING_PAGES_GROUP_6.value,
+    # )
+    # extended_ingestion(
+    #     PageGroupNames.SOCIAL_MARKETING_8.value,
+    #     CollectionNames.MD_HEAD_CHUNKING_PAGES_GROUP_8.value,
+    # )

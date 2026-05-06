@@ -75,14 +75,15 @@ def evaluate_log(csv_name: str) -> str:
             ContextRecall(llm=judge_llm, name="context_recall"),
             ContextEntityRecall(llm=judge_llm, name="context_entity_recall"),
             Faithfulness(llm=judge_llm, name="faithfulness"),
-            NoiseSensitivity(
-                llm=judge_llm, mode="relevant", name="noise_sensitivity_relevant"
-            ),
-            NoiseSensitivity(
-                llm=judge_llm, mode="irrelevant", name="noise_sensitivity_irrelevant"
-            ),
-            SemanticSimilarity(embeddings=judge_emb, name="semantic_similarity"),
-            # not work
+            # not used three
+            # NoiseSensitivity(
+            #     llm=judge_llm, mode="relevant", name="noise_sensitivity_relevant"
+            # ),
+            # NoiseSensitivity(
+            #     llm=judge_llm, mode="irrelevant", name="noise_sensitivity_irrelevant"
+            # ),
+            # SemanticSimilarity(embeddings=judge_emb, name="semantic_similarity"),
+            # not work one
             # ResponseRelevancy(
             #     embeddings=judge_emb, llm=judge_llm, name="response_relevancy"
             # ),

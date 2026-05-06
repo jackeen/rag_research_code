@@ -4,65 +4,18 @@ The LLM power is based on Ollama.
 """
 
 import hashlib
-import re
 from dataclasses import dataclass
 from enum import Enum
 from typing import Self, cast
 
 import mistune
 import ollama
-from ollama import ChatResponse, Client, Message, chat
+from ollama import ChatResponse, Client, Message
 from qdrant_client import QdrantClient
 
-# from .entailment_filter_cross_deberta import is_paragraph_supports_topic
+# from ingestion.converters.code_block_inline import CodeTag
 # from .classifier_llm_core_point import is_not_introduction
-import sys_config
-from ingestion.converters.code_block_inline import CodeTag
-
-
-def generate_system_prompt() -> str:
-    system_content = """
-    # Does the following text discuss the given topic?
-    """
-    return system_content
-
-
-def generate_user_prompt(topic: str, text: str) -> str:
-    user_content = f"""
-    ## Topic
-    {topic}
-
-    ## Text
-    {text}
-
-    ## Answer
-    Answer yes or no without any other information.
-    """
-    return user_content
-
-
-def is_associated(topic: str, content: str) -> bool:
-    # role: system, user, assistant, tool
-    system_msg = Message(
-        role="system",
-        content=generate_system_prompt(),
-    )
-    user_msg = Message(
-        role="user",
-        content=generate_user_prompt(topic, content),
-    )
-
-    # different LLM may cause different result, carefully to chose and test
-    res: ChatResponse = chat(
-        model=sys_config.OLLAMA_GEMMA_MODEL_4_E2B,
-        messages=[system_msg, user_msg],
-    )
-    res_content = res.message.content
-
-    if res_content is not None and res_content.lower() == "yes":
-        return True
-    else:
-        return False
+# from .entailment_filter_cross_deberta import is_paragraph_supports_topic
 
 
 @dataclass
@@ -171,10 +124,15 @@ class ParagraphType(Enum):
     TABLE = "table"
 
 
+class SemanticModules(Enum):
+    LLM = "llm"
+    NLI = "nli"
+
+
 class AnchorSelector:
     """
-    The chunk selector based on NLI, to select and filter from page chunk to paragraph chunk.
-    The core of this process is to pick up valuable chunks from the collection, so, this module name includs "selector".
+    The chunk selector based on NLI or LLM, to select and filter from page chunk to paragraph chunk.
+    The core of this process is to pick up valuable chunks from the collection of database, so, this module name includs "selector".
     The module name also include "anchor", which means that the pre-setting topics are used as an anchor to compare with chunks.
 
     In the page searching level, The searching algorithm is HNSW for lowering time complexity, which is Olog(N),
@@ -183,16 +141,14 @@ class AnchorSelector:
     In the paragrah level, ....
     """
 
+    _ollama_url: str
+    _ollama_model: str
+    _ollama_client: Client
+
     _qdrant_host: str
     _qdrant_port: int
     _qdrant_client: QdrantClient
     _dense_embedding_model: str
-    _code_tag_llm_model: str
-
-    _code_tag_converter: CodeTag
-
-    # these two level chunks just for understanding easily,
-    # it is not mean that is exact kind of chunks.
 
     _all_topic_page_chunks: dict[str, list[str]] = {}
 
@@ -205,13 +161,19 @@ class AnchorSelector:
     _page_list_chunks: list[str] = []
 
     def __init__(
-        self, host: str, port: int, dense_embedding_model: str, code_tag_model: str
+        self,
+        qdrant_host: str,
+        qdrant_port: int,
+        dense_embedding_model: str,
+        ollama_url: str,
+        ollama_model: str,
     ) -> None:
-        self._qdrant_host = host
-        self._qdrant_port = port
-        self._code_tag_llm_model = code_tag_model
+        self._qdrant_host = qdrant_host
+        self._qdrant_port = qdrant_port
         self._dense_embedding_model = dense_embedding_model
-        self._code_tag_converter = CodeTag(code_tag_model)
+        self._ollama_url = ollama_url
+        self._ollama_model = ollama_model
+        self._ollama_client = Client(host=ollama_url)
 
     def _embedding(self, content: str) -> list[float]:
         res = ollama.embeddings(model=self._dense_embedding_model, prompt=content)
@@ -225,25 +187,47 @@ class AnchorSelector:
     def _get_hash(self, content: str) -> str:
         return hashlib.md5(content.encode("utf-8")).hexdigest()
 
-    def _process_code_blocks(self, text: str) -> str:
-        """process code blocks with code tags (not used)"""
-        pattern = re.compile(r"```(\w*)\n(.*?)```", re.DOTALL)
-        matches = list(pattern.finditer(text))
+    def _generate_system_prompt(self) -> str:
+        system_content = """
+        # Does the following text discuss the given topic?
+        """
+        return system_content
 
-        tags = []
-        for m in matches:
-            raw_code = m.group(2).strip()
-            code_id = self._get_hash(raw_code)
-            tag = self._code_tag_converter.get_code_tag(raw_code)
-            if tag is not None:
-                tags.append(
-                    f"[CODE:{code_id}|lang={tag.lang}|desc={tag.summary.strip('.')}]"
-                )
+    def _generate_user_prompt(self, topic: str, text: str) -> str:
+        user_content = f"""
+        ## Topic
+        {topic}
 
-        for m, tag in zip(reversed(matches), reversed(tags)):
-            text = text[: m.start()] + tag + text[m.end() :]
+        ## Text
+        {text}
 
-        return text
+        ## Answer
+        Answer yes or no without any other information.
+        """
+        return user_content
+
+    def _is_associated(self, topic: str, content: str) -> bool:
+        # role: system, user, assistant, tool
+        system_msg = Message(
+            role="system",
+            content=self._generate_system_prompt(),
+        )
+        user_msg = Message(
+            role="user",
+            content=self._generate_user_prompt(topic, content),
+        )
+
+        # different LLM may cause different result, carefully to chose and test
+        res: ChatResponse = self._ollama_client.chat(
+            model=self._ollama_model,
+            messages=[system_msg, user_msg],
+        )
+        res_content = res.message.content
+
+        if res_content is not None and res_content.lower() == "yes":
+            return True
+        else:
+            return False
 
     def refine_page_chunks_from_queried_points(
         self,
@@ -280,11 +264,13 @@ class AnchorSelector:
                     continue
 
             topic_page_chunks[topic.content] = current_page_chunks
-            self._all_topic_page_chunks = topic_page_chunks
+        self._all_topic_page_chunks = topic_page_chunks
 
         return self
 
-    def refine_paragrahp_chunks(self) -> Self:
+    def refine_paragrahp_chunks(
+        self, semantic_module: SemanticModules, is_drop_code: bool = False
+    ) -> Self:
         # the default renderer is HTML
         parse = mistune.create_markdown(renderer=None)
 
@@ -306,16 +292,18 @@ class AnchorSelector:
 
                 # pick up code and list page in different group
                 if ParagraphType.LIST.value in code_types:
-                    is_ok = is_associated(topic, page)
+                    is_ok = self._is_associated(topic, page)
                     if is_ok:
                         self._page_list_chunks.append(page)
                     continue
                 elif ParagraphType.BLOCK_CODE.value in code_types:
-                    is_ok = is_associated(topic, page)
-                    if is_ok:
-                        self._page_code_chunks.append(page)
-                    # self._page_code_chunks.append(page)
-                    continue
+                    if is_drop_code:
+                        continue
+                    else:
+                        is_ok = self._is_associated(topic, page)
+                        if is_ok:
+                            self._page_code_chunks.append(page)
+                        continue
 
                 # refine paragraph chunks in current page
                 for node in nodes:
@@ -326,14 +314,23 @@ class AnchorSelector:
                             continue
                         else:
                             self._paragraph_chunks.append(node_content)
-                            # NLI method
+
+                            is_associated_with_topic = False
+
+                            # NLI method (future work)
                             # not used based on its lower effective and high complexity
-                            # is_ok, _ = is_paragraph_supports_topic(topic, node_content)
+                            # but in experiments, it provides some comparative values
+                            # if semantic_module == SemanticModules.NLI:
+                            #     is_associated_with_topic, _ = (
+                            #         is_paragraph_supports_topic(topic, node_content)
+                            #     )
 
                             # LLM method
-                            is_associated_with_topic = is_associated(
-                                topic, node_content
-                            )
+                            if semantic_module == SemanticModules.LLM:
+                                is_associated_with_topic = self._is_associated(
+                                    topic, node_content
+                                )
+
                             if is_associated_with_topic:
                                 self._refined_paragraph_chunks.append(node_content)
 
@@ -357,9 +354,6 @@ class AnchorSelector:
             container.append(c)
         return self
 
-    def get_filtered_paragrahp_chunk_str_list(self, container: list[str]) -> Self:
-        return self
-
     def get_hybrid_chunks_str_list(self, container: list[str]) -> Self:
         for c in self._page_code_chunks:
             container.append(c)
@@ -373,4 +367,4 @@ class AnchorSelector:
 
 
 if __name__ == "__main__":
-    print(is_associated("USA is a country", "Good"))
+    pass

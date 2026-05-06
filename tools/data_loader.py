@@ -8,7 +8,7 @@ from pathlib import Path
 
 
 class BookNames(Enum):
-    """The enum book names and their files, which can provide an easy way to access them."""
+    """The enum book names and their files."""
 
     INTRO_WEB_DEV_1 = "1.pdf"
     RESPONSIVE_WEB_DESIGN_2 = "2.pdf"
@@ -16,6 +16,28 @@ class BookNames(Enum):
     DESIGN_PATTERN_5 = "5.pdf"
     STRUCTURE_INTERPRETATION_6 = "6.pdf"
     SOCIAL_MARKETING_8 = "8.pdf"
+
+
+class PageGroupNames(Enum):
+    """The selected pages of books, it includes PDF and MD files"""
+
+    INTRO_WEB_DEV_1 = "1_pages"
+    RESPONSIVE_WEB_DESIGN_2 = "2_pages"
+    LEARNING_REACT_4 = "4_pages"
+    DESIGN_PATTERN_5 = "5_pages"
+    STRUCTURE_INTERPRETATION_6 = "6_pages"
+    SOCIAL_MARKETING_8 = "8_pages"
+
+
+class PageGroupRanges(Enum):
+    """The selected page ranges of books"""
+
+    INTRO_WEB_DEV_1 = []
+    RESPONSIVE_WEB_DESIGN_2 = []
+    LEARNING_REACT_4 = []
+    DESIGN_PATTERN_5 = []
+    STRUCTURE_INTERPRETATION_6 = []
+    SOCIAL_MARKETING_8 = []
 
 
 class References(Enum):
@@ -103,5 +125,6 @@ def get_txt_log_path(txt_name: str) -> Path:
 
 
 if __name__ == "__main__":
+    pass
     # for test
-    print(get_csv_log_path("test_log"))
+    # print(get_csv_log_path("test_log"))

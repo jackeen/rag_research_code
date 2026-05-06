@@ -24,6 +24,8 @@ class SummarizedCode(DataClassJsonMixin):
 
 
 class CodeTag:
+    """To convert the code block into a tag by natual sentence (not used, not meaningful)"""
+
     _llm_name: str = ""
 
     def __init__(self, llm_name) -> None:

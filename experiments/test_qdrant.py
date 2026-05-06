@@ -22,19 +22,23 @@ import sys_config
 
 def embedding(content: str) -> list[float]:
     res = ollama.embeddings(
-        model=sys_config.OLLAMA_GRANITE_EMBEDDING_MODEL_768, prompt=content
+        model=sys_config.OLLAMA_GEMMA_EMBEDDING_MODEL_768, prompt=content
     )
     return list(res.embedding)
 
 
 client = QdrantClient(host=sys_config.QDRANT_HOST, port=sys_config.QDRANT_PORT)
 
+query = """
+LAMP, standing for Linux, Apache, MySQL, and PHP, named in the same order.
+"""
+
 
 def dense_query():
     res = client.query_points(
-        collection_name="exp_3_md",
-        query=embedding("color-scheme"),
-        limit=4,
+        collection_name="extended_temp",
+        query=embedding(query),
+        limit=8,
         score_threshold=0.5,
     )
     for p in res.points:

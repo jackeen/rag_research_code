@@ -11,11 +11,16 @@ from beta.config import AgentConfig, AgentConfigChoseModel
 from tools.data_loader import get_csv_data_path, get_csv_log_path
 from tools.similarity import calculate_cosine_similarity
 
-# from .exp_3_ingestion import load_extracted_entities
+from .exp_3_config import CollectionNames
 
 
 def test_agent_based_on_entity_filter(
-    c_name: str, topk: int = 4, score_limit: float = 0.0, is_hybrid=False
+    c_name: str,
+    questions: list[str],
+    std_answers: list[str],
+    topk: int = 4,
+    score_limit: float = 0.0,
+    is_hybrid=False,
 ):
     agent_config = AgentConfig(
         collection_name=c_name,
@@ -38,14 +43,15 @@ def test_agent_based_on_entity_filter(
     agent.use_ollama_embeddings()
     agent.generate_work_flow()
 
-    df = pd.read_csv(str(get_csv_data_path("questions_and_answers")))
-    questions_df = df["three_asking_ways"]
-    answers_df = df["standard_answers"]
+    # df = pd.read_csv(str(get_csv_data_path("questions_and_answers")))
+    # questions_df = df["three_asking_ways"]
+    # answers_df = df["standard_answers"]
 
+    # the range of index is [), left one is inclusive start, right one is exclusive end
     # responsive web 30:60
     # 42:60
-    questions = questions_df[30:60].tolist()
-    std_answers = answers_df[30:60].ffill().tolist()
+    # questions = questions_df[30:60].tolist()
+    # std_answers = answers_df[30:60].ffill().tolist()
 
     # for std_answer in std_answers:
     #     print(std_answer)
@@ -86,57 +92,95 @@ def test_agent_based_on_entity_filter(
     result_df = pd.DataFrame(
         {
             "question": questions,
-            # "question_kws": query_keywords_list,
             "std_answers": std_answers,
             "answers": agent_answers,
             "similarity": similarity_list,
             "retrieve": retrieved_docs,
         }
     )
-    result_path = get_csv_log_path("exp_3_ret")
+    result_path = get_csv_log_path("slim_exp_3_ret")
     result_df.to_csv(result_path, index=False, encoding="utf-8")
 
 
-if __name__ == "__main__":
+def exploring_qa():
     std_collection = "exp_3_std_answer"
 
-    # old experiment based on entity match filter
-    filtered_collection = "exp_3_entity_filtered"
-    all_collection = "exp_3_entity"
+    # experimental collections based on entity match filter
+    fixed_chunking_collection = "exp_3_entity"
+    keywords_1_filtered_collection = "exp_3_entity_filtered"
+    keywords_2_filtered_collection = "exp_3_entity_filtered_2"
 
     # based on header splitter
     md_collection = "exp_3_md"
 
     # refined by llm
-    md_collection_refined = "exp_3_md_refined"
-
-    # refined by first level anchor
-    md_refined_page = "exp_3_md_refined_page_chunks"
-
-    # filter code page
-    md_refined_page_without_code = "exp_3_md_refined_page_chunks_without_code"
-
-    md_normal_paragraph = "exp_3_md_refined_normal_paragraph_chunks"
-
-    # for more idea to try
-    md_normal_paragraph_2 = "exp_3_md_refined_normal_paragraph_chunks_2"
-
-    # test_agent_based_on_entity_filter(all_collection)
-
-    # print("Under 20 chunks")
-    # test_agent_based_on_entity_filter(std_collection, 20, 0.6)
-
-    # print("Under 4 chunks")
-    # test_agent_based_on_entity_filter(std_collection, 4, 0.6)
+    md_collection_llm_refined = "exp_3_md_llm_refined"
+    md_collection_multi_layer_refined = "exp_3_md_multi_layer_refined"
 
     print("---------------------------")
     print(datetime.now().isoformat())
     print("---------------------------")
 
-    # print("Under 20 chunks")
-    # test_agent_based_on_entity_filter(c_name=md_normal_paragraph_2, topk=20)
+    print("Under 20 chunks")
+    # test_agent_based_on_entity_filter(
+    #     c_name=md_collection_multi_layer_refined, topk=20, book_i=2
+    # )
 
     # print("----")
 
     print("Under 4 chunks")
-    test_agent_based_on_entity_filter(c_name=md_normal_paragraph, topk=4)
+    # test_agent_based_on_entity_filter(
+    #     c_name=md_collection_multi_layer_refined, topk=4, book_i=2
+    # )
+
+
+def extended_qa(c_name: str, questions: list[str], std_answers: list[str]):
+    print("---------------------------")
+    print(datetime.now().isoformat())
+    print("---------------------------")
+
+    # print("Under 20 chunks")
+    # test_agent_based_on_entity_filter(
+    #     c_name=c_name, topk=20, questions=questions, std_answers=std_answers
+    # )
+    # print("----")
+
+    print("Under 4 chunks")
+    test_agent_based_on_entity_filter(
+        c_name=c_name, topk=4, questions=questions, std_answers=std_answers
+    )
+
+
+def load_questions_answers(
+    file_name: str, start: int, end: int
+) -> tuple[list[str], list[str]]:
+    """
+    Load the source of answers by given indexes,
+    for example: 30,60 get book 2 anwers
+    Arguments:
+        start: the start index of answers list, from 1
+        end: the end index of answers list
+    return: the tuple of questions and answers (ground truth)
+    """
+    df = pd.read_csv(str(get_csv_data_path(file_name)))
+    q_list = df["three_asking_ways"][start:end].to_list()
+    a_list = df["standard_answers"][start:end].ffill().to_list()
+    return (q_list, a_list)
+
+
+if __name__ == "__main__":
+    pass
+    # exploring_qa()
+
+    q_list, a_list = load_questions_answers("questions_and_answers", 0, 30)
+
+    extended_qa(
+        c_name=CollectionNames.MD_HEAD_CHUNKING_PAGES_GROUP_1_TMP.value,
+        questions=q_list,
+        std_answers=a_list,
+    )
+    extended_qa(
+        c_name=CollectionNames.MD_HEAD_CHUNKING_PAGES_GROUP_1.value,
+        questions=q_list,
+        std_answers=a_list,
+    )

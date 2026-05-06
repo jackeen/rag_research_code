@@ -80,9 +80,20 @@ def generate_slim_book(book_file_name: str, page_ranges: list[tuple[int, int]]):
     collect_pages_as_new_pdf(str(book_path), str(slim_book_path), page_ranges)
 
 
+def get_page_group_from_book(book_name: BookNames, page_ranges: list[tuple[int, int]]):
+    book_path = get_book_path(book_name.value)
+    pages_path = get_book_pdf_path(book_path.stem + "_pages")
+    collect_pages_as_new_pdf(
+        target_file_path=str(book_path),
+        new_file_path=str(pages_path),
+        pages=page_ranges,
+    )
+
+
 if __name__ == "__main__":
-    book_2_selected_pages = [(23, 340)]
-    generate_slim_book(BookNames.RESPONSIVE_WEB_DESIGN_2.value, book_2_selected_pages)
+    pass
+    # book_2_selected_pages = [(23, 340)]
+    # generate_slim_book(BookNames.RESPONSIVE_WEB_DESIGN_2.value, book_2_selected_pages)
 
     # test
     # book_2_path = get_book_path(BookNames.RESPONSIVE_WEB_DESIGN_2.value)
@@ -99,3 +110,6 @@ if __name__ == "__main__":
 
     ### clean document
     # clean_markdown(book_2_slim_md_path)
+
+    # the page range in the page picker is from 0, so 16-44 should be 15-43
+    # get_page_group_from_book(BookNames.INTRO_WEB_DEV_1, [(15, 43)])
