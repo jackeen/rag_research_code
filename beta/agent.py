@@ -190,10 +190,31 @@ def prompt_generate_without_llm_knowledge() -> ChatPromptTemplate:
         {question}
     """
 
+    x_system = """
+    You are a strict Retrieval-Augmented Generation (RAG) system.
+
+    You MUST follow these constraints:
+    * Use ONLY the information provided in the [Context]
+    * DO NOT use any external knowledge or prior training data
+    * DO NOT infer, assume, or expand beyond what is explicitly stated
+    * If the answer cannot be directly derived from the Context, respond with: I don't know
+    * Keep the answer concise and do not add explanations
+
+    ## Contexts
+    {context}
+    """
+
+    x_human = """
+    ## Question
+    {question}
+
+    ## Answer
+    """
+
     prompt = ChatPromptTemplate(
         [
-            SystemMessagePromptTemplate.from_template(system_prompt_tpl_3b),
-            HumanMessagePromptTemplate.from_template(human_prompt_tpl),
+            SystemMessagePromptTemplate.from_template(x_system),
+            HumanMessagePromptTemplate.from_template(x_human),
         ]
     )
     return prompt
