@@ -5,6 +5,7 @@ This module depends on 0.3.4 Ragas
 from typing import Sequence, cast
 
 import dotenv
+import numpy
 import pandas as pd
 from datasets import Dataset
 from openai import AsyncOpenAI
@@ -17,7 +18,7 @@ from ragas.metrics import (
     ContextPrecision,
     ContextRecall,
     Faithfulness,
-    NoiseSensitivity,
+    # NoiseSensitivity,
     # ResponseRelevancy,
     SemanticSimilarity,
 )
@@ -32,10 +33,13 @@ dotenv.load_dotenv()
 
 
 def extract_retrieved_chunks(text: str) -> list[str]:
+    text = str(text)
+    if text is None or text == "":
+        return []
     chunks = text.split("\n\n")
     raw_chunks: list[str] = []
     for c in chunks:
-        raw_chunk = c.split("\nQCS")[0]
+        raw_chunk = c.split("QCS:")[0]
         raw_chunks.append(raw_chunk)
     return raw_chunks
 
@@ -75,14 +79,13 @@ def evaluate_log(csv_name: str) -> str:
             ContextRecall(llm=judge_llm, name="context_recall"),
             ContextEntityRecall(llm=judge_llm, name="context_entity_recall"),
             Faithfulness(llm=judge_llm, name="faithfulness"),
-            # not used three
             # NoiseSensitivity(
             #     llm=judge_llm, mode="relevant", name="noise_sensitivity_relevant"
             # ),
             # NoiseSensitivity(
             #     llm=judge_llm, mode="irrelevant", name="noise_sensitivity_irrelevant"
             # ),
-            # SemanticSimilarity(embeddings=judge_emb, name="semantic_similarity"),
+            SemanticSimilarity(embeddings=judge_emb, name="semantic_similarity"),
             # not work one
             # ResponseRelevancy(
             #     embeddings=judge_emb, llm=judge_llm, name="response_relevancy"
@@ -93,19 +96,43 @@ def evaluate_log(csv_name: str) -> str:
     score = evaluate(
         dataset=data_set,
         metrics=metrics,
-        run_config=RunConfig(max_workers=4),
+        run_config=RunConfig(max_workers=2),
     )
     score = cast(EvaluationResult, score)
 
     result_dataframe = score.to_pandas()
     result_path = get_csv_log_path("exp_3_eval")
     result_dataframe.to_csv(result_path, encoding="utf-8")
+
+    cp = result_dataframe["context_precision"].dropna().to_list()
+    cr = result_dataframe["context_recall"].dropna().to_list()
+    cnr = result_dataframe["context_entity_recall"].dropna().to_list()
+    ff = result_dataframe["faithfulness"].dropna().to_list()
+    # nsr = result_dataframe["noise_sensitivity_relevant"].dropna().to_list()
+    # nsi = result_dataframe["noise_sensitivity_irrelevant"].dropna().to_list()
+    ss = result_dataframe["semantic_similarity"].dropna().to_list()
+
+    print(f"context_precision: {numpy.around(numpy.array(cp).mean(), decimals=4)}")
+    print(f"context_recall: {numpy.around(numpy.array(cr).mean(), decimals=4)}")
+    print(f"context_entity_recall: {numpy.around(numpy.array(cnr).mean(), decimals=4)}")
+    print(f"faithfulness: {numpy.around(numpy.array(ff).mean(), decimals=4)}")
+    # print(
+    #     f"noise_sensitivity_relevant: {numpy.around(numpy.array(nsr).mean(), decimals=4)}"
+    # )
+    # print(
+    #     f"noise_sensitivity_irrelevant: {numpy.around(numpy.array(nsi).mean(), decimals=4)}"
+    # )
+    print(f"semantic_similarity_mean: {numpy.around(numpy.mean(ss), decimals=4)}")
+    print(f"semantic_similarity_median: {numpy.around(numpy.median(ss), decimals=4)}")
+
     return result_path.stem
 
 
 if __name__ == "__main__":
-    # result_log_names = ["exp_3_ret_1_1", "exp_3_ret_3_4"]
-    result_log_names = ["exp_3_ret_1_1"]
+    result_log_names = [
+        "slim_exp_3_ret_20260509_141954",
+        "slim_exp_3_ret_20260509_142025",
+    ]
     for ret_log_name in result_log_names:
         eval_log_name = evaluate_log(ret_log_name)
         print(eval_log_name)

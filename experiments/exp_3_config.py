@@ -40,3 +40,8 @@ class CollectionNames(Enum):
     MD_HEAD_CHUNKING_PAGES_GROUP_6_TMP = "p_exp_3_md_multi_layer_pg_6_tmp"
     MD_HEAD_CHUNKING_PAGES_GROUP_8 = "p_exp_3_md_multi_layer_pg_8"
     MD_HEAD_CHUNKING_PAGES_GROUP_8_TMP = "p_exp_3_md_multi_layer_pg_8_tmp"
+
+    MD_HEAD_CHUNKING_FULL_1 = "p_exp_3_md_multi_layer_1"
+    MD_HEAD_CHUNKING_FULL_1_TMP = "p_exp_3_md_multi_layer_1_tmp"
+    MD_HEAD_CHUNKING_FULL_6 = "p_exp_3_md_multi_layer_6"
+    MD_HEAD_CHUNKING_FULL_6_TMP = "p_exp_3_md_multi_layer_6_tmp"

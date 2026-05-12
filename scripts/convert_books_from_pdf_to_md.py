@@ -111,5 +111,37 @@ if __name__ == "__main__":
     ### clean document
     # clean_markdown(book_2_slim_md_path)
 
-    # the page range in the page picker is from 0, so 16-44 should be 15-43
-    # get_page_group_from_book(BookNames.INTRO_WEB_DEV_1, [(15, 43)])
+    # ###############################################
+
+    # the page range in the page picker is from 0, so 16,64 should be 15-64
+    # get_page_group_from_book(BookNames.INTRO_WEB_DEV_1, [(15, 64)])
+
+    # 24-35,127-135,214-224,254-266,281-290,319-330
+    # get_page_group_from_book(
+    #     BookNames.RESPONSIVE_WEB_DESIGN_2,
+    #     [(23, 35), (126, 135), (213, 224), (253, 266), (280, 290), (318, 330)],
+    # )
+
+    # 15-30,51-56,73-79,83-88,95-98,122-133,236-238
+    # get_page_group_from_book(
+    #     BookNames.LEARNING_REACT_4,
+    #     [(14, 30), (50, 56), (72, 79), (82, 88), (94, 98), (121, 133), (235, 238)],
+    # )
+
+    # 39-45,60-67,89-97,107-113,122-128,197-203
+    # get_page_group_from_book(
+    #     BookNames.DESIGN_PATTERN_5,
+    #     [(38, 45), (59, 67), (88, 97), (106, 113), (121, 128), (196, 203)],
+    # )
+
+    # 29-102,694-768
+    # get_page_group_from_book(
+    #     BookNames.STRUCTURE_INTERPRETATION_6,
+    #     [(28, 103), (693, 769)],
+    # )
+
+    # 22-108
+    # get_page_group_from_book(
+    #     BookNames.SOCIAL_MARKETING_8,
+    #     [(21, 108)],
+    # )

@@ -5,8 +5,8 @@ import sys_config
 
 def _generate_system_prompt() -> str:
     system_prompt = """
-    You are a paragraph classifier.
-    Your task is to determine whether a given paragraph is a "transitional paragraph" or "not transitional paragraph".
+    Your task is to remove any introductory or navigational sentences that reference "this chapter", "the book", "skip to",
+    or reader instructions. Keep only objective technical content. Output the cleaned text directly without explanation.
     """
     return system_prompt
 
@@ -14,22 +14,14 @@ def _generate_system_prompt() -> str:
 #  in first line. Answer the refined content in the second line
 def _generate_user_prompt(text: str) -> str:
     user_prompt = f"""
-    ## Rules
-    A transitional paragraph typically:
-    - Introduces a topic without making a claim (e.g., "In this section, we will discuss...")
-    - Provides context without analysis or evidence
-
-    ## Paragraph
+    ## Text
     {text}
-
-    ## Output label
-    "transitional paragraph" or "not transitional paragraph"
     """
 
     return user_prompt
 
 
-def is_transitional(text: str):
+def remove_transitional_part(text: str):
     system_msg = Message(
         role="system",
         content=_generate_system_prompt(),
@@ -45,13 +37,10 @@ def is_transitional(text: str):
     )
 
     res_content = res.message.content
-    if res_content is None:
-        return False
+    if res_content is not None:
+        return res_content
     else:
-        if res_content == "transitional paragraph":
-            return True
-        else:
-            return False
+        return ""
 
 
 if __name__ == "__main__":
@@ -87,4 +76,4 @@ if __name__ == "__main__":
     It's a cliche at this point to talk about [JavaScript Fatigue,](http://bit.ly/2pSiuE4) but the source of this fake illness can be traced back to the building process. In the past, you just added Java‐ Script files to your page. Now the JavaScript file has to be built, usually with an auto‐mated continuous delivery process. There's emerging syntax that has to be transpiled to work in all browsers. There's JSX that has to be converted to JavaScript. There's SCSS that you might want to preprocess. These components need to be tested, and they have to pass. You might love React, but now you also need to be a webpack expert, handling code splitting, compression, testing, and on and on.
     """
 
-    print(is_transitional(text))
+    print(remove_transitional_part(text_4))

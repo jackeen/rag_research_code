@@ -13,8 +13,12 @@ import ollama
 from ollama import ChatResponse, Client, Message
 from qdrant_client import QdrantClient
 
+# from .checker_llm_information import is_usefull_information
 # from ingestion.converters.code_block_inline import CodeTag
-# from .classifier_llm_core_point import is_not_introduction
+from .classifier_llm_core_point import is_transitional
+
+# from .cleaner_llm_transitional_part import remove_transitional_part
+
 # from .entailment_filter_cross_deberta import is_paragraph_supports_topic
 
 
@@ -206,6 +210,35 @@ class AnchorSelector:
         """
         return user_content
 
+    # this version of prompt will cause bad results
+    # def _generate_system_prompt(self) -> str:
+    #     system_content = """
+    #     # Task: Determine whether the passage discusses the given topic.
+
+    #     ## Definition of "discusses":
+    #     - The passage's main subject or a substantial portion is about the given topic.
+    #     - The passage provides factual information, context, or details related to
+    #       the topic.
+
+    #     ## Does NOT count as "discusses":
+    #     - Brief mention of the topic in passing (e.g., one phrase) without elaboration
+    #     - The passage only shares a keyword with the topic but addresses something else
+    #     """
+    #     return system_content
+
+    # def _generate_user_prompt(self, topic: str, text: str) -> str:
+    #     user_content = f"""
+    #     ## Topic
+    #     {topic}
+
+    #     ## Passage
+    #     {text}
+
+    #     ## Answer
+    #     Answer yes or no without any other information.
+    #     """
+    #     return user_content
+
     def _is_associated(self, topic: str, content: str) -> bool:
         # role: system, user, assistant, tool
         system_msg = Message(
@@ -330,9 +363,23 @@ class AnchorSelector:
                                 is_associated_with_topic = self._is_associated(
                                     topic, node_content
                                 )
+                                # is_associated_with_topic = is_usefull_information(
+                                #     node_content, topic
+                                # )
 
                             if is_associated_with_topic:
-                                self._refined_paragraph_chunks.append(node_content)
+                                if not is_transitional(node_content):
+                                    self._refined_paragraph_chunks.append(node_content)
+
+                                # this part need more test, it not suitable for every books
+                                # else:
+                                #     cleaned_content = remove_transitional_part(
+                                #         node_content
+                                #     )
+                                #     if len(cleaned_content) > 200:
+                                #         self._refined_paragraph_chunks.append(
+                                #             cleaned_content
+                                #         )
 
         return self
 

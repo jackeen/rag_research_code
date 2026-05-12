@@ -13,7 +13,7 @@ from langchain_community.document_loaders import PyMuPDFLoader, TextLoader
 from langchain_core.documents import Document
 
 # from langchain_core.language_models import BaseChatModel
-from langchain_ollama import ChatOllama
+# from langchain_ollama import ChatOllama
 from langchain_text_splitters import (
     MarkdownHeaderTextSplitter,
     RecursiveCharacterTextSplitter,
@@ -379,6 +379,7 @@ class ChunkPipeline:
         collection_name: str,
         is_hybrid=False,
         group_ref: str = "",
+        noises: list[str] = [],
     ) -> Self:
         config = AgentConfig(
             collection_name=collection_name, is_hybrid_search=is_hybrid
@@ -406,6 +407,11 @@ class ChunkPipeline:
                     "header_4": c.header_4,
                 },
             )
+            docs.append(doc)
+
+        # inject noises
+        for n_content in noises:
+            doc = Document(page_content=n_content, metadata={"noises": True})
             docs.append(doc)
 
         # save the chunks in vector database
@@ -719,6 +725,7 @@ def extended_ingestion(
     target_c_name: str,
     topics: list[str],
     group_ref: str,
+    noises: list[str] = [],
 ):
     """other group sets"""
     chunk_pipline = ChunkPipeline()
@@ -728,6 +735,7 @@ def extended_ingestion(
         embedding_name=sys_config.OLLAMA_GEMMA_EMBEDDING_MODEL_768,
         embedding_dim=sys_config.OLLAMA_GEMMA_EMBEDDING_MODEL_DIMENSIONS,
         collection_name=source_c_name,
+        noises=noises,
     )
 
     # collect varified chunks from the temp db
@@ -737,8 +745,8 @@ def extended_ingestion(
         is_skip_code_paragraph=False,
         semantic_module=SemanticModules.LLM,
         collection_name=source_c_name,
-        pages_per_topic=8,
-        pages_threshold=0.5,
+        pages_per_topic=16,
+        pages_threshold=0.4,
         llm_name=sys_config.OLLAMA_GEMMA_MODEL_4_E2B,
         embedding_model=sys_config.OLLAMA_GEMMA_EMBEDDING_MODEL_768,
     ).ingest(
@@ -747,6 +755,80 @@ def extended_ingestion(
         collection_name=target_c_name,
         group_ref=group_ref,
     )
+
+
+def extended_exp(book_n: int):
+
+    # load noises
+    # noises_path = get_csv_data_path("noises")
+    # noises_df = pd.read_csv(noises_path)["noises"]
+
+    print(f"Ingest book {book_n}")
+    if book_n == 1:
+        topics_1 = load_standard_answers("questions_and_answers", 0, 30)
+        extended_ingestion(
+            md_file_name=PageGroupNames.INTRO_WEB_DEV_1.value,
+            source_c_name=CollectionNames.MD_HEAD_CHUNKING_PAGES_GROUP_1_TMP.value,
+            target_c_name=CollectionNames.MD_HEAD_CHUNKING_PAGES_GROUP_1.value,
+            topics=topics_1,
+            group_ref=References.INTRO_WEB_DEV_1.value,
+            # noises=noises_df[0:30].to_list(),
+        )
+
+    if book_n == 2:
+        topics_2 = load_standard_answers("questions_and_answers", 30, 60)
+        extended_ingestion(
+            md_file_name=PageGroupNames.RESPONSIVE_WEB_DESIGN_2.value,
+            source_c_name=CollectionNames.MD_HEAD_CHUNKING_PAGES_GROUP_2_TMP.value,
+            target_c_name=CollectionNames.MD_HEAD_CHUNKING_PAGES_GROUP_2.value,
+            topics=topics_2,
+            group_ref=References.RESPONSIVE_WEB_DESIGN_2.value,
+            # noises=noises_df[30:60].to_list(),
+        )
+
+    if book_n == 4:
+        topics_4 = load_standard_answers("questions_and_answers", 60, 90)
+        extended_ingestion(
+            md_file_name=PageGroupNames.LEARNING_REACT_4.value,
+            source_c_name=CollectionNames.MD_HEAD_CHUNKING_PAGES_GROUP_4_TMP.value,
+            target_c_name=CollectionNames.MD_HEAD_CHUNKING_PAGES_GROUP_4.value,
+            topics=topics_4,
+            group_ref=References.LEARNING_REACT_4.value,
+            # noises=noises_df[60:90].to_list(),
+        )
+
+    if book_n == 5:
+        topics_5 = load_standard_answers("questions_and_answers", 90, 120)
+        extended_ingestion(
+            md_file_name=PageGroupNames.DESIGN_PATTERN_5.value,
+            source_c_name=CollectionNames.MD_HEAD_CHUNKING_PAGES_GROUP_5_TMP.value,
+            target_c_name=CollectionNames.MD_HEAD_CHUNKING_PAGES_GROUP_5.value,
+            topics=topics_5,
+            group_ref=References.DESIGN_PATTERN_5.value,
+            # noises=noises_df[90:120].to_list(),
+        )
+
+    if book_n == 6:
+        topics_6 = load_standard_answers("questions_and_answers", 120, 150)
+        extended_ingestion(
+            md_file_name=PageGroupNames.STRUCTURE_INTERPRETATION_6.value,
+            source_c_name=CollectionNames.MD_HEAD_CHUNKING_PAGES_GROUP_6_TMP.value,
+            target_c_name=CollectionNames.MD_HEAD_CHUNKING_PAGES_GROUP_6.value,
+            topics=topics_6,
+            group_ref=References.STRUCTURE_INTERPRETATION_6.value,
+            # noises=noises_df[120:150].to_list(),
+        )
+
+    if book_n == 8:
+        topics_8 = load_standard_answers("questions_and_answers", 150, 180)
+        extended_ingestion(
+            md_file_name=PageGroupNames.SOCIAL_MARKETING_8.value,
+            source_c_name=CollectionNames.MD_HEAD_CHUNKING_PAGES_GROUP_8_TMP.value,
+            target_c_name=CollectionNames.MD_HEAD_CHUNKING_PAGES_GROUP_8.value,
+            topics=topics_8,
+            group_ref=References.SOCIAL_MARKETING_8.value,
+            # noises=noises_df[150:180].to_list(),
+        )
 
 
 if __name__ == "__main__":
@@ -760,28 +842,9 @@ if __name__ == "__main__":
     # exploring_ingestion_piplines()
 
     # in extension stage, use the best options of filter to test other page groups
-    topics_1 = load_standard_answers("questions_and_answers", 0, 30)
-    extended_ingestion(
-        md_file_name=PageGroupNames.INTRO_WEB_DEV_1.value,
-        source_c_name=CollectionNames.MD_HEAD_CHUNKING_PAGES_GROUP_1_TMP.value,
-        target_c_name=CollectionNames.MD_HEAD_CHUNKING_PAGES_GROUP_1.value,
-        topics=topics_1,
-        group_ref=References.INTRO_WEB_DEV_1.value,
-    )
-
-    # extended_ingestion(
-    #     PageGroupNames.LEARNING_REACT_4.value,
-    #     CollectionNames.MD_HEAD_CHUNKING_PAGES_GROUP_4.value,
-    # )
-    # extended_ingestion(
-    #     PageGroupNames.DESIGN_PATTERN_5.value,
-    #     CollectionNames.MD_HEAD_CHUNKING_PAGES_GROUP_5.value,
-    # )
-    # extended_ingestion(
-    #     PageGroupNames.STRUCTURE_INTERPRETATION_6.value,
-    #     CollectionNames.MD_HEAD_CHUNKING_PAGES_GROUP_6.value,
-    # )
-    # extended_ingestion(
-    #     PageGroupNames.SOCIAL_MARKETING_8.value,
-    #     CollectionNames.MD_HEAD_CHUNKING_PAGES_GROUP_8.value,
-    # )
+    # extended_exp(1)
+    # extended_exp(2)
+    # extended_exp(4)
+    # extended_exp(5)
+    # extended_exp(6)
+    extended_exp(8)

@@ -135,19 +135,12 @@ def exploring_qa():
 
 
 def extended_qa(c_name: str, questions: list[str], std_answers: list[str]):
-    print("---------------------------")
-    print(datetime.now().isoformat())
-    print("---------------------------")
-
-    # print("Under 20 chunks")
-    # test_agent_based_on_entity_filter(
-    #     c_name=c_name, topk=20, questions=questions, std_answers=std_answers
-    # )
-    # print("----")
-
-    print("Under 4 chunks")
     test_agent_based_on_entity_filter(
-        c_name=c_name, topk=4, questions=questions, std_answers=std_answers
+        c_name=c_name,
+        topk=4,
+        questions=questions,
+        std_answers=std_answers,
+        # score_limit=0.3,
     )
 
 
@@ -168,19 +161,99 @@ def load_questions_answers(
     return (q_list, a_list)
 
 
+def extended_exp(book_n: int):
+    print(f"\nAgent QA for book {book_n}")
+
+    if book_n == 1:
+        q_list, a_list = load_questions_answers("questions_and_answers", 0, 30)
+        extended_qa(
+            c_name=CollectionNames.MD_HEAD_CHUNKING_PAGES_GROUP_1_TMP.value,
+            questions=q_list,
+            std_answers=a_list,
+        )
+        extended_qa(
+            c_name=CollectionNames.MD_HEAD_CHUNKING_PAGES_GROUP_1.value,
+            questions=q_list,
+            std_answers=a_list,
+        )
+
+    if book_n == 2:
+        q_list, a_list = load_questions_answers("questions_and_answers", 30, 60)
+        extended_qa(
+            c_name=CollectionNames.MD_HEAD_CHUNKING_PAGES_GROUP_2_TMP.value,
+            questions=q_list,
+            std_answers=a_list,
+        )
+        extended_qa(
+            c_name=CollectionNames.MD_HEAD_CHUNKING_PAGES_GROUP_2.value,
+            questions=q_list,
+            std_answers=a_list,
+        )
+
+    if book_n == 4:
+        q_list, a_list = load_questions_answers("questions_and_answers", 60, 90)
+        extended_qa(
+            c_name=CollectionNames.MD_HEAD_CHUNKING_PAGES_GROUP_4_TMP.value,
+            questions=q_list,
+            std_answers=a_list,
+        )
+        extended_qa(
+            c_name=CollectionNames.MD_HEAD_CHUNKING_PAGES_GROUP_4.value,
+            questions=q_list,
+            std_answers=a_list,
+        )
+
+    if book_n == 5:
+        q_list, a_list = load_questions_answers("questions_and_answers", 90, 120)
+        extended_qa(
+            c_name=CollectionNames.MD_HEAD_CHUNKING_PAGES_GROUP_5_TMP.value,
+            questions=q_list,
+            std_answers=a_list,
+        )
+        extended_qa(
+            c_name=CollectionNames.MD_HEAD_CHUNKING_PAGES_GROUP_5.value,
+            questions=q_list,
+            std_answers=a_list,
+        )
+
+    if book_n == 6:
+        q_list, a_list = load_questions_answers("questions_and_answers", 120, 150)
+        extended_qa(
+            c_name=CollectionNames.MD_HEAD_CHUNKING_PAGES_GROUP_6_TMP.value,
+            questions=q_list,
+            std_answers=a_list,
+        )
+        extended_qa(
+            c_name=CollectionNames.MD_HEAD_CHUNKING_PAGES_GROUP_6.value,
+            questions=q_list,
+            std_answers=a_list,
+        )
+
+    if book_n == 8:
+        q_list, a_list = load_questions_answers("questions_and_answers", 150, 180)
+        extended_qa(
+            c_name=CollectionNames.MD_HEAD_CHUNKING_PAGES_GROUP_8_TMP.value,
+            questions=q_list,
+            std_answers=a_list,
+        )
+        extended_qa(
+            c_name=CollectionNames.MD_HEAD_CHUNKING_PAGES_GROUP_8.value,
+            questions=q_list,
+            std_answers=a_list,
+        )
+
+
 if __name__ == "__main__":
     pass
+
+    print("---------------------------")
+    print(datetime.now().isoformat())
+    print("---------------------------")
+
     # exploring_qa()
-
-    q_list, a_list = load_questions_answers("questions_and_answers", 0, 30)
-
-    extended_qa(
-        c_name=CollectionNames.MD_HEAD_CHUNKING_PAGES_GROUP_1_TMP.value,
-        questions=q_list,
-        std_answers=a_list,
-    )
-    extended_qa(
-        c_name=CollectionNames.MD_HEAD_CHUNKING_PAGES_GROUP_1.value,
-        questions=q_list,
-        std_answers=a_list,
-    )
+    # extended_exp(1)
+    # extended_exp(2)
+    # extended_exp(4)
+    # extended_exp(5)
+    # extended_exp(6)
+    extended_exp(8)
