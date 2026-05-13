@@ -69,7 +69,7 @@ class AgentConfig:
     # the dimensions of embedding model from OpenAI are flexible
     embedding_model: str = ""
     embedding_dimensions: int = 0
-    sparse_embedding_model: str = sys_config.SPARES_PP_EN_v2
+    sparse_embedding_model: str = sys_config.SPARES_PP_EN_v1
     chunk_size: int = 100
     chunk_overlap: int = 0
 

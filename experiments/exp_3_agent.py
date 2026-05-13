@@ -134,13 +134,16 @@ def exploring_qa():
     # )
 
 
-def extended_qa(c_name: str, questions: list[str], std_answers: list[str]):
+def extended_qa(
+    c_name: str, questions: list[str], std_answers: list[str], is_hybrid_search: bool
+):
     test_agent_based_on_entity_filter(
         c_name=c_name,
         topk=4,
         questions=questions,
         std_answers=std_answers,
         # score_limit=0.3,
+        is_hybrid=is_hybrid_search,
     )
 
 
@@ -170,11 +173,13 @@ def extended_exp(book_n: int):
             c_name=CollectionNames.MD_HEAD_CHUNKING_PAGES_GROUP_1_TMP.value,
             questions=q_list,
             std_answers=a_list,
+            is_hybrid_search=True,
         )
         extended_qa(
             c_name=CollectionNames.MD_HEAD_CHUNKING_PAGES_GROUP_1.value,
             questions=q_list,
             std_answers=a_list,
+            is_hybrid_search=True,
         )
 
     if book_n == 2:
@@ -183,24 +188,30 @@ def extended_exp(book_n: int):
             c_name=CollectionNames.MD_HEAD_CHUNKING_PAGES_GROUP_2_TMP.value,
             questions=q_list,
             std_answers=a_list,
+            is_hybrid_search=True,
         )
         extended_qa(
             c_name=CollectionNames.MD_HEAD_CHUNKING_PAGES_GROUP_2.value,
             questions=q_list,
             std_answers=a_list,
+            is_hybrid_search=True,
         )
 
     if book_n == 4:
         q_list, a_list = load_questions_answers("questions_and_answers", 60, 90)
         extended_qa(
-            c_name=CollectionNames.MD_HEAD_CHUNKING_PAGES_GROUP_4_TMP.value,
+            # c_name=CollectionNames.MD_HEAD_CHUNKING_PAGES_GROUP_4_TMP.value,
+            c_name="temp",
             questions=q_list,
             std_answers=a_list,
+            is_hybrid_search=True,
         )
         extended_qa(
-            c_name=CollectionNames.MD_HEAD_CHUNKING_PAGES_GROUP_4.value,
+            # c_name=CollectionNames.MD_HEAD_CHUNKING_PAGES_GROUP_4.value,
+            c_name="temp_f",
             questions=q_list,
             std_answers=a_list,
+            is_hybrid_search=True,
         )
 
     if book_n == 5:
@@ -209,11 +220,13 @@ def extended_exp(book_n: int):
             c_name=CollectionNames.MD_HEAD_CHUNKING_PAGES_GROUP_5_TMP.value,
             questions=q_list,
             std_answers=a_list,
+            is_hybrid_search=True,
         )
         extended_qa(
             c_name=CollectionNames.MD_HEAD_CHUNKING_PAGES_GROUP_5.value,
             questions=q_list,
             std_answers=a_list,
+            is_hybrid_search=True,
         )
 
     if book_n == 6:
@@ -222,11 +235,13 @@ def extended_exp(book_n: int):
             c_name=CollectionNames.MD_HEAD_CHUNKING_PAGES_GROUP_6_TMP.value,
             questions=q_list,
             std_answers=a_list,
+            is_hybrid_search=True,
         )
         extended_qa(
             c_name=CollectionNames.MD_HEAD_CHUNKING_PAGES_GROUP_6.value,
             questions=q_list,
             std_answers=a_list,
+            is_hybrid_search=True,
         )
 
     if book_n == 8:
@@ -235,11 +250,13 @@ def extended_exp(book_n: int):
             c_name=CollectionNames.MD_HEAD_CHUNKING_PAGES_GROUP_8_TMP.value,
             questions=q_list,
             std_answers=a_list,
+            is_hybrid_search=True,
         )
         extended_qa(
             c_name=CollectionNames.MD_HEAD_CHUNKING_PAGES_GROUP_8.value,
             questions=q_list,
             std_answers=a_list,
+            is_hybrid_search=True,
         )
 
 

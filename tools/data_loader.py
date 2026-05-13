@@ -7,6 +7,17 @@ from enum import Enum
 from pathlib import Path
 
 
+class BookTitles(Enum):
+    """The enum book titles"""
+
+    INTRO_WEB_DEV_1 = "An Introduction to Web Development and Programm"
+    RESPONSIVE_WEB_DESIGN_2 = "Responsive Web Design with HTML5 and CSS3"
+    LEARNING_REACT_4 = "Learning React"
+    DESIGN_PATTERN_5 = "Design Patterns"
+    STRUCTURE_INTERPRETATION_6 = "Structure and Interpretation of Computer Programs"
+    SOCIAL_MARKETING_8 = "Principles and practice of social marketing"
+
+
 class BookNames(Enum):
     """The enum book names and their files."""
 

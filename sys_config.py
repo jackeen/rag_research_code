@@ -45,6 +45,8 @@ OPEN_AI_EMBEDDING_DEFAULT_DIMENSIONS = 1536
 SPARES_QDRANT_ATTENTIONS = "Qdrant/all_miniLM_L6_v2_with_attentions"
 # Bert based model, support synonyms, near-synonyms, abbreviations
 SPARES_PP_EN_v2 = "prithivida/Splade_PP_en_v2"
+SPARES_PP_EN_v1 = "prithivida/Splade_PP_en_v1"
+SPARES_QDRANT_BM42 = "Qdrant/bm42-all-minilm-l6-v2-attentions"
 
 # Transformer embeddings
 # 256 token

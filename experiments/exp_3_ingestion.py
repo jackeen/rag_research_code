@@ -38,6 +38,7 @@ from ingestion.kg_builder.entity import (
 )
 from tools.data_loader import (
     BookNames,
+    BookTitles,
     PageGroupNames,
     PageGroupRanges,
     References,
@@ -202,9 +203,12 @@ class ChunkPipeline:
         # the splitter devided the input larger document into smaller documents
         header_docs = md_header_splitter.split_text(raw_md_content)
         for doc in header_docs:
+            doc_content = doc.page_content
+            # if len(doc_content) < 150:
+            #     continue
             self.chunks.append(
                 Chunk(
-                    content=doc.page_content,
+                    content=doc_content,
                     header_1=doc.metadata.get("header_1", ""),
                     header_2=doc.metadata.get("header_2", ""),
                     header_3=doc.metadata.get("header_3", ""),
@@ -318,6 +322,8 @@ class ChunkPipeline:
         pages_threshold: float,
         llm_name: str,
         embedding_model: str,
+        sparse_embedding_model: str,
+        book_title: str = "",
     ) -> Self:
         """
         Refine the related chunks from database by cosine score.
@@ -331,6 +337,7 @@ class ChunkPipeline:
             qdrant_host=sys_config.QDRANT_HOST,
             qdrant_port=sys_config.QDRANT_PORT,
             dense_embedding_model=embedding_model,
+            sparse_embedding_model=sparse_embedding_model,
             ollama_url=sys_config.OLLAMA_URL_BASE,
             ollama_model=llm_name,
         )
@@ -343,7 +350,7 @@ class ChunkPipeline:
 
         # refine the related page-level chunks from database
         refined_content_list: list[str] = []
-        anchor_selector.connect_db().refine_page_chunks_from_queried_points(
+        anchor_selector.connect_db().refine_page_chunks_from_hybrid_queried_points(
             topics=topics,
             collection_name=collection_name,
             size=pages_per_topic,
@@ -352,13 +359,13 @@ class ChunkPipeline:
 
         if level == 0:
             anchor_selector.get_selected_page_chunk_str_list(refined_content_list)
-            print(f"layer one: get {len(refined_content_list)} candidate chunks")
+            # print(f"Got {len(refined_content_list)} page chunks")
 
         if level == 1:
             anchor_selector.refine_paragrahp_chunks(
                 semantic_module, is_drop_code=is_skip_code_paragraph
             ).get_hybrid_chunks_str_list(refined_content_list)
-            print(f"layer two: get {len(refined_content_list)} semanstic chunks")
+            # print(f"Got {len(refined_content_list)} semanstic chunks")
 
         # remove duplicated
         refined_content_list = list(set(refined_content_list))
@@ -380,6 +387,8 @@ class ChunkPipeline:
         is_hybrid=False,
         group_ref: str = "",
         noises: list[str] = [],
+        book_title: str = "",
+        is_ingest_source: bool = False,
     ) -> Self:
         config = AgentConfig(
             collection_name=collection_name, is_hybrid_search=is_hybrid
@@ -395,16 +404,42 @@ class ChunkPipeline:
         ingestor.force_create_collection()
 
         docs: list[Document] = []
+        doc_content = ""
         for c in self.chunks:
+            doc_content = c.content
+            current_source_str = ""
+
+            h1 = c.header_1.strip(" ").strip("*")
+            h2 = c.header_2.strip(" ").strip("*")
+            h3 = c.header_3.strip(" ").strip("*")
+            h4 = c.header_4.strip(" ").strip("*")
+
+            source_list = [book_title]
+            if h1 != "":
+                source_list.append(h1)
+            if h2 != "":
+                source_list.append(h2)
+            if h3 != "":
+                source_list.append(h3)
+            if h4 != "":
+                source_list.append(h4)
+            current_source_str = "/".join(source_list)
+
+            # ingest source tag into the chunk content
+            if is_ingest_source:
+                doc_content = f"<source>{current_source_str}</source>\n" + doc_content
+
             doc = Document(
-                page_content=c.content,
+                page_content=doc_content,
                 metadata={
+                    "title": book_title,
+                    "source": current_source_str,
                     "keywords": str(c.content_keywords).split(self.KEYWORDS_SPLITTER),
                     "features": str(c.feature_words).split(self.KEYWORDS_SPLITTER),
-                    "header_1": c.header_1,
-                    "header_2": c.header_2,
-                    "header_3": c.header_3,
-                    "header_4": c.header_4,
+                    # "header_1": c.header_1,
+                    # "header_2": c.header_2,
+                    # "header_3": c.header_3,
+                    # "header_4": c.header_4,
                 },
             )
             docs.append(doc)
@@ -599,6 +634,7 @@ def exploring_ingestion_piplines():
         pages_threshold=0.5,
         llm_name=sys_config.OLLAMA_GRANITE_MODEL_4_3B_H,
         embedding_model=sys_config.OLLAMA_GRANITE_EMBEDDING_MODEL_768,
+        sparse_embedding_model=sys_config.SPARES_PP_EN_v1,
     ).ingest(
         embedding_name=sys_config.OLLAMA_GRANITE_EMBEDDING_MODEL_768,
         embedding_dim=sys_config.OLLAMA_GRANITE_EMBEDDING_MODEL_DIMENSIONS,
@@ -616,6 +652,7 @@ def exploring_ingestion_piplines():
         pages_threshold=0.5,
         llm_name=sys_config.OLLAMA_GRANITE_MODEL_4_3B_H,
         embedding_model=sys_config.OLLAMA_GRANITE_EMBEDDING_MODEL_768,
+        sparse_embedding_model=sys_config.SPARES_PP_EN_v1,
     ).ingest(
         embedding_name=sys_config.OLLAMA_GRANITE_EMBEDDING_MODEL_768,
         embedding_dim=sys_config.OLLAMA_GRANITE_EMBEDDING_MODEL_DIMENSIONS,
@@ -633,6 +670,7 @@ def exploring_ingestion_piplines():
         pages_threshold=0.5,
         llm_name=sys_config.OLLAMA_GRANITE_MODEL_4_3B_H,
         embedding_model=sys_config.OLLAMA_GRANITE_EMBEDDING_MODEL_768,
+        sparse_embedding_model=sys_config.SPARES_PP_EN_v1,
     ).ingest(
         embedding_name=sys_config.OLLAMA_GRANITE_EMBEDDING_MODEL_768,
         embedding_dim=sys_config.OLLAMA_GRANITE_EMBEDDING_MODEL_DIMENSIONS,
@@ -650,6 +688,7 @@ def exploring_ingestion_piplines():
         pages_threshold=0.5,
         llm_name=sys_config.OLLAMA_GRANITE_MODEL_4_3B_H,
         embedding_model=sys_config.OLLAMA_GRANITE_EMBEDDING_MODEL_768,
+        sparse_embedding_model=sys_config.SPARES_PP_EN_v1,
     ).ingest(
         embedding_name=sys_config.OLLAMA_GRANITE_EMBEDDING_MODEL_768,
         embedding_dim=sys_config.OLLAMA_GRANITE_EMBEDDING_MODEL_DIMENSIONS,
@@ -684,6 +723,7 @@ def exploring_ingestion_piplines():
         pages_threshold=0.5,
         llm_name=sys_config.OLLAMA_GEMMA_MODEL_4_E2B,
         embedding_model=sys_config.OLLAMA_GRANITE_EMBEDDING_MODEL_768,
+        sparse_embedding_model=sys_config.SPARES_PP_EN_v1,
     ).ingest(
         embedding_name=sys_config.OLLAMA_GRANITE_EMBEDDING_MODEL_768,
         embedding_dim=sys_config.OLLAMA_GRANITE_EMBEDDING_MODEL_DIMENSIONS,
@@ -712,6 +752,7 @@ def exploring_ingestion_piplines():
         pages_threshold=0.5,
         llm_name=sys_config.OLLAMA_GEMMA_MODEL_4_E2B,
         embedding_model=sys_config.OLLAMA_GEMMA_EMBEDDING_MODEL_768,
+        sparse_embedding_model=sys_config.SPARES_PP_EN_v1,
     ).ingest(
         embedding_name=sys_config.OLLAMA_GEMMA_EMBEDDING_MODEL_768,
         embedding_dim=sys_config.OLLAMA_GEMMA_EMBEDDING_MODEL_DIMENSIONS,
@@ -726,6 +767,7 @@ def extended_ingestion(
     topics: list[str],
     group_ref: str,
     noises: list[str] = [],
+    book_title: str = "",
 ):
     """other group sets"""
     chunk_pipline = ChunkPipeline()
@@ -735,33 +777,38 @@ def extended_ingestion(
         embedding_name=sys_config.OLLAMA_GEMMA_EMBEDDING_MODEL_768,
         embedding_dim=sys_config.OLLAMA_GEMMA_EMBEDDING_MODEL_DIMENSIONS,
         collection_name=source_c_name,
+        is_hybrid=True,
         noises=noises,
+        book_title=book_title,
     )
 
     # collect varified chunks from the temp db
     chunk_pipline.refine_chunks_from_db(
+        book_title=book_title,
         base_topics=topics,
         level=1,
         is_skip_code_paragraph=False,
         semantic_module=SemanticModules.LLM,
         collection_name=source_c_name,
-        pages_per_topic=16,
-        pages_threshold=0.4,
+        pages_per_topic=8,
+        pages_threshold=0.0,
         llm_name=sys_config.OLLAMA_GEMMA_MODEL_4_E2B,
         embedding_model=sys_config.OLLAMA_GEMMA_EMBEDDING_MODEL_768,
+        sparse_embedding_model=sys_config.SPARES_PP_EN_v1,
     ).ingest(
         embedding_name=sys_config.OLLAMA_GEMMA_EMBEDDING_MODEL_768,
         embedding_dim=sys_config.OLLAMA_GEMMA_EMBEDDING_MODEL_DIMENSIONS,
         collection_name=target_c_name,
         group_ref=group_ref,
+        is_hybrid=True,
     )
 
 
 def extended_exp(book_n: int):
 
     # load noises
-    # noises_path = get_csv_data_path("noises")
-    # noises_df = pd.read_csv(noises_path)["noises"]
+    noises_path = get_csv_data_path("noises")
+    noises_df = pd.read_csv(noises_path)["noises"]
 
     print(f"Ingest book {book_n}")
     if book_n == 1:
@@ -772,7 +819,7 @@ def extended_exp(book_n: int):
             target_c_name=CollectionNames.MD_HEAD_CHUNKING_PAGES_GROUP_1.value,
             topics=topics_1,
             group_ref=References.INTRO_WEB_DEV_1.value,
-            # noises=noises_df[0:30].to_list(),
+            noises=noises_df[0:30].to_list(),
         )
 
     if book_n == 2:
@@ -783,7 +830,7 @@ def extended_exp(book_n: int):
             target_c_name=CollectionNames.MD_HEAD_CHUNKING_PAGES_GROUP_2.value,
             topics=topics_2,
             group_ref=References.RESPONSIVE_WEB_DESIGN_2.value,
-            # noises=noises_df[30:60].to_list(),
+            noises=noises_df[30:60].to_list(),
         )
 
     if book_n == 4:
@@ -791,10 +838,13 @@ def extended_exp(book_n: int):
         extended_ingestion(
             md_file_name=PageGroupNames.LEARNING_REACT_4.value,
             source_c_name=CollectionNames.MD_HEAD_CHUNKING_PAGES_GROUP_4_TMP.value,
+            # source_c_name="temp",
             target_c_name=CollectionNames.MD_HEAD_CHUNKING_PAGES_GROUP_4.value,
+            # target_c_name="temp_f",
             topics=topics_4,
             group_ref=References.LEARNING_REACT_4.value,
             # noises=noises_df[60:90].to_list(),
+            book_title=BookTitles.LEARNING_REACT_4.value,
         )
 
     if book_n == 5:
@@ -805,7 +855,7 @@ def extended_exp(book_n: int):
             target_c_name=CollectionNames.MD_HEAD_CHUNKING_PAGES_GROUP_5.value,
             topics=topics_5,
             group_ref=References.DESIGN_PATTERN_5.value,
-            # noises=noises_df[90:120].to_list(),
+            noises=noises_df[90:120].to_list(),
         )
 
     if book_n == 6:
@@ -816,7 +866,7 @@ def extended_exp(book_n: int):
             target_c_name=CollectionNames.MD_HEAD_CHUNKING_PAGES_GROUP_6.value,
             topics=topics_6,
             group_ref=References.STRUCTURE_INTERPRETATION_6.value,
-            # noises=noises_df[120:150].to_list(),
+            noises=noises_df[120:150].to_list(),
         )
 
     if book_n == 8:
@@ -827,7 +877,7 @@ def extended_exp(book_n: int):
             target_c_name=CollectionNames.MD_HEAD_CHUNKING_PAGES_GROUP_8.value,
             topics=topics_8,
             group_ref=References.SOCIAL_MARKETING_8.value,
-            # noises=noises_df[150:180].to_list(),
+            noises=noises_df[150:180].to_list(),
         )
 
 

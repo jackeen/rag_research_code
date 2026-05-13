@@ -14,14 +14,14 @@ LABELS = ["contradiction", "entailment", "neutral"]
 ENTAILMENT_INDEX = 1
 
 device = "cpu"
-if torch.backends.mps.is_available():
-    device = "mps"
-elif torch.cuda.is_available():
-    device = "cuda"
+# if torch.backends.mps.is_available():
+#     device = "mps"
+# elif torch.cuda.is_available():
+#     device = "cuda"
 
 # cross-encoder/nli-deberta-v3-base
 # cross-encoder/nli-deberta-v3-xsmall
-model = CrossEncoder("cross-encoder/nli-deberta-v3-large", device=device)
+model = CrossEncoder("cross-encoder/nli-deberta-v3-base", device=device)
 
 
 def _split_sentences(paragraph: str) -> list[str]:
@@ -83,5 +83,12 @@ if __name__ == "__main__":
     The core of responsive design includes flexible layouts, it also depends on media queries.
     """
 
-    ret = is_paragraph_supports_topic(topic, s2)
+    topic_2 = "It’s a cliche at this point to talk about JavaScript Fatigue, but the source of this fake illness can be traced back to the building process."
+
+    s3 = """
+    t's a cliche at this point to talk about [JavaScript Fatigue,](http://bit.ly/2pSiuE4) but the source of this fake illness can be traced back to the building process. In the past, you just added Java‐ Script files to your page. Now the JavaScript file has to be built, usually with an auto‐ mated continuous delivery process. There's emerging syntax that has to be transpiled to work in all browsers. There's JSX that has to be converted to JavaScript. There's SCSS that you might want to preprocess. These components need to be tested, and
+    they have to pass. You might love React, but now you also need to be a webpack expert, handling code splitting, compression, testing, and on and on.
+    """
+
+    ret, _ = is_paragraph_supports_topic(topic_2, s3)
     print(ret)
