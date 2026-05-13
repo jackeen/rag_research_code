@@ -312,6 +312,7 @@ class Agent:
                 client=self.qdrant_client,
                 collection_name=self.config.collection_name,
                 embedding=self.embeddings,
+                vector_name=VectorNames.DENSE.value,
             )
 
         # the default settings of retriever
