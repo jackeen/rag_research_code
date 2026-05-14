@@ -9,6 +9,7 @@ import torch
 
 # import torch.nn.functional as TF
 from sentence_transformers import CrossEncoder
+from transformers import AutoTokenizer
 
 LABELS = ["contradiction", "entailment", "neutral"]
 ENTAILMENT_INDEX = 1
@@ -19,9 +20,14 @@ device = "cpu"
 # elif torch.cuda.is_available():
 #     device = "cuda"
 
-# cross-encoder/nli-deberta-v3-base
-# cross-encoder/nli-deberta-v3-xsmall
-model = CrossEncoder("cross-encoder/nli-deberta-v3-base", device=device)
+
+CROSS_NLI_XSMALL_MODEL = "cross-encoder/nli-deberta-v3-xsmall"
+CROSS_NLI_BASE_MODEL = "cross-encoder/nli-deberta-v3-base"
+CROSS_NLI_LARGE_MODEL = "cross-encoder/nli-deberta-v3-large"
+model = CrossEncoder(CROSS_NLI_LARGE_MODEL, device=device)
+
+# for counting input
+# tokenizer = AutoTokenizer.from_pretrained(CROSS_NLI_LARGE_MODEL)
 
 
 def _split_sentences(paragraph: str) -> list[str]:
@@ -90,5 +96,28 @@ if __name__ == "__main__":
     they have to pass. You might love React, but now you also need to be a webpack expert, handling code splitting, compression, testing, and on and on.
     """
 
-    ret, _ = is_paragraph_supports_topic(topic_2, s3)
+    topic_3 = """
+The Strategy Pattern defines a family of algorithms, encapsulates each one, and makes them interchangeable. Strategy lets the algorithm vary independently from clients that use it.
+    """
+
+    s4 = """
+    Congratulations on your first pattern!
+    You just applied your first design pattern—the **STRATEGY** Pattern. That's right, you used the Strategy Pattern to rework the SimUDuck app.
+    Thanks to this pattern, the simulator is ready for any changes those execs might cook up on their next business trip to Maui.
+    Now that we've made you take the long road to learn it, here's the formal definition of this pattern:
+    **The Strategy Pattern** defines a family of algorithms, encapsulates each one, and makes them interchangeable. Strategy lets the algorithm vary independently from clients that use it.
+    Use THIS definition when you need to impress friends and influence key executives.
+    Below you'll find a mess of classes and interfaces for an action adventure game. You'll find classes for game characters along with classes for weapon behaviors the characters can use in the game. Each character can make use of one weapon at a time, but can change weapons at any time during the game. Your job is to sort it all out...
+    (Answers are at the end of the chapter.)
+
+    """
+
+    s5 = """
+    **The Observer Pattern** defines a one-to-many dependency between objects so that when one object changes state, all of its dependents are notified and updated automatically.
+    """
+
+    # tokens = tokenizer.encode(topic_3 + s4, add_special_tokens=False)
+    # print(len(tokens))
+
+    ret, _ = is_paragraph_supports_topic(topic_3, s5)
     print(ret)

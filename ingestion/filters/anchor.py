@@ -401,6 +401,7 @@ class AnchorSelector:
             )
 
             for page_c in page_chunks:
+                # source tag is not in the content, right now
                 source_tag, page = self._split_source_page_and_chunk(page_c)
 
                 # generate the tree depend on md

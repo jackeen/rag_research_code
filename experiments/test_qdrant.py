@@ -51,12 +51,29 @@ It’s a cliche at this point to talk about JavaScript Fatigue, but the source o
 
 query_12 = "It’s a cliche at this point to talk about JavaScript Fatigue"
 
-query_tran = """in this chapter"""
+query_ip_address = """Seeing as most of us would have a hard time remembering what IP address is needed"""
+
+query_stragegy = """
+Congratulations on your first pattern!
+You just applied your first design pattern—the **STRATEGY** Pattern. That's right, you used the Strategy Pattern to rework the SimUDuck app.
+Thanks to this pattern, the simulator is ready for any changes those execs might cook up on their next business trip to Maui.
+Now that we've made you take the long road to learn it, here's the formal definition of this pattern:
+**The Strategy Pattern** defines a family of algorithms, encapsulates each one, and makes them interchangeable. Strategy lets the algorithm vary independently from clients that use it.
+Use THIS definition when you need to impress friends and influence key executives.
+Below you'll find a mess of classes and interfaces for an action adventure game. You'll find classes for game characters along with classes for weapon behaviors the characters can use in the game. Each character can make use of one weapon at a time, but can change weapons at any time during the game. Your job is to sort it all out...
+(Answers are at the end of the chapter.)
+"""
+
+query_pattern = (
+    """**The Observer Pattern** defines a one-to-many dependency between objects"""
+)
+
+query_memory = """When working memory is full"""
 
 
 def dense_query(q: str):
     res = client.query_points(
-        collection_name="temp",
+        collection_name="temp_f",
         query=embedding(q),
         using="text_dense_vector",
         limit=4,
@@ -73,7 +90,7 @@ def dense_query(q: str):
 def hybrid_query(q: str):
     sparse_emb = sparse_embedding(q)
     res = client.query_points(
-        collection_name="temp_f",
+        collection_name="p_exp_3_md_multi_layer_pg_6",
         prefetch=[
             models.Prefetch(query=embedding(q), using="text_dense_vector", limit=20),
             models.Prefetch(
@@ -100,7 +117,9 @@ if __name__ == "__main__":
     print("\n\n\n")
     # print(SparseTextEmbedding.list_supported_models())
     # dense_query(query)
-    hybrid_query(query)
+    #
+
+    hybrid_query(query_memory)
 
     # x = """
     # Since its release in 1995, JavaScript has gone through many changes. At first, it made adding interactive elements to web pages much simpler. Then it got more robust with DHTML and AJAX. Now, with Node.js, JavaScript has become a language that is used to build full-stack applications. The committee that is and has been in charge of shep‐ herding the changes to JavaScript is the European Computer Manufacturers Associa‐ tion (ECMA).

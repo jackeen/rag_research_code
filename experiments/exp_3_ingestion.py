@@ -807,8 +807,8 @@ def extended_ingestion(
 def extended_exp(book_n: int):
 
     # load noises
-    noises_path = get_csv_data_path("noises")
-    noises_df = pd.read_csv(noises_path)["noises"]
+    # noises_path = get_csv_data_path("noises")
+    # noises_df = pd.read_csv(noises_path)["noises"]
 
     print(f"Ingest book {book_n}")
     if book_n == 1:
@@ -819,7 +819,8 @@ def extended_exp(book_n: int):
             target_c_name=CollectionNames.MD_HEAD_CHUNKING_PAGES_GROUP_1.value,
             topics=topics_1,
             group_ref=References.INTRO_WEB_DEV_1.value,
-            noises=noises_df[0:30].to_list(),
+            # noises=noises_df[0:30].to_list(),
+            book_title=BookTitles.INTRO_WEB_DEV_1.value,
         )
 
     if book_n == 2:
@@ -830,7 +831,8 @@ def extended_exp(book_n: int):
             target_c_name=CollectionNames.MD_HEAD_CHUNKING_PAGES_GROUP_2.value,
             topics=topics_2,
             group_ref=References.RESPONSIVE_WEB_DESIGN_2.value,
-            noises=noises_df[30:60].to_list(),
+            # noises=noises_df[30:60].to_list(),
+            book_title=BookTitles.RESPONSIVE_WEB_DESIGN_2.value,
         )
 
     if book_n == 4:
@@ -838,9 +840,7 @@ def extended_exp(book_n: int):
         extended_ingestion(
             md_file_name=PageGroupNames.LEARNING_REACT_4.value,
             source_c_name=CollectionNames.MD_HEAD_CHUNKING_PAGES_GROUP_4_TMP.value,
-            # source_c_name="temp",
             target_c_name=CollectionNames.MD_HEAD_CHUNKING_PAGES_GROUP_4.value,
-            # target_c_name="temp_f",
             topics=topics_4,
             group_ref=References.LEARNING_REACT_4.value,
             # noises=noises_df[60:90].to_list(),
@@ -855,7 +855,8 @@ def extended_exp(book_n: int):
             target_c_name=CollectionNames.MD_HEAD_CHUNKING_PAGES_GROUP_5.value,
             topics=topics_5,
             group_ref=References.DESIGN_PATTERN_5.value,
-            noises=noises_df[90:120].to_list(),
+            # noises=noises_df[90:120].to_list(),
+            book_title=BookTitles.DESIGN_PATTERN_5.value,
         )
 
     if book_n == 6:
@@ -866,7 +867,8 @@ def extended_exp(book_n: int):
             target_c_name=CollectionNames.MD_HEAD_CHUNKING_PAGES_GROUP_6.value,
             topics=topics_6,
             group_ref=References.STRUCTURE_INTERPRETATION_6.value,
-            noises=noises_df[120:150].to_list(),
+            # noises=noises_df[120:150].to_list(),
+            book_title=BookTitles.STRUCTURE_INTERPRETATION_6.value,
         )
 
     if book_n == 8:
@@ -877,7 +879,8 @@ def extended_exp(book_n: int):
             target_c_name=CollectionNames.MD_HEAD_CHUNKING_PAGES_GROUP_8.value,
             topics=topics_8,
             group_ref=References.SOCIAL_MARKETING_8.value,
-            noises=noises_df[150:180].to_list(),
+            # noises=noises_df[150:180].to_list(),
+            book_title=BookTitles.SOCIAL_MARKETING_8.value,
         )
 
 

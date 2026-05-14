@@ -193,12 +193,13 @@ def prompt_generate_without_llm_knowledge() -> ChatPromptTemplate:
     x_system = """
     You are a strict Retrieval-Augmented Generation (RAG) system.
 
-    You MUST follow these constraints:
-    * Use ONLY the information provided in the [Context]
-    * DO NOT use any external knowledge or prior training data
-    * DO NOT infer, assume, or expand beyond what is explicitly stated
-    * If the answer cannot be directly derived from the Context, respond with: I don't know
-    * Keep the answer concise and do not add explanations
+    ## You MUST follow these constraints:
+    - Use ONLY the information provided in the [Context]
+    - DO NOT use any external knowledge or prior training data
+    - DO NOT infer, assume, or expand beyond what is explicitly stated
+    - If the answer cannot be directly derived from the Context, respond with: I don't know
+    - Keep the answer concise and do not add explanations
+    - Use simple and natural language.
 
     ## Contexts
     {context}
@@ -281,6 +282,9 @@ class Agent:
             model=self.config.llm_model,
             temperature=0,
             reasoning=False,
+            num_ctx=4096,
+            seed=42,
+            keep_alive=-1,
         )
 
     def use_ollama_embeddings(self):
@@ -359,6 +363,8 @@ class Agent:
 
     def retriever_node(self, state: AgentState) -> AgentState:
         query = state["query"]
+
+        # this is not recommanded, hybrid instead of it
         query_keywords = state["query_keywords"]
 
         # retrieved = self.retriever.invoke(query)
@@ -396,17 +402,19 @@ class Agent:
 
         # collect info
         for doc, score in retrieved:
-            keywords = doc.metadata.get("keywords")
-            features = doc.metadata.get("features")
-            KFS = doc.metadata.get("KFS")
+            # keywords = doc.metadata.get("keywords")
+            # features = doc.metadata.get("features")
+            # KFS = doc.metadata.get("KFS")
 
             retrieved_contexts.append(doc.page_content)
             retrieved_contents.append(
-                f"{doc.page_content}\nQCS:{score}\nKFS:{KFS}\nK:{keywords}\nF:{features}"
+                # \nKFS:{KFS}\nK:{keywords}\nF:{features}
+                f"{doc.page_content}\nQCS:{score}"
             )
             retrieved_content_reference.append(
                 doc.metadata.get(CustomerMetadata.CHUNK_REFERENCE_NAME.value)
             )
+
         state["context"] = retrieved_contexts
         state["retrieved_contents"] = retrieved_contents
         state["retrieved_contents_reference"] = retrieved_content_reference
