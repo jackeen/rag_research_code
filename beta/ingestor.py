@@ -89,9 +89,15 @@ class Ingestor:
             else:
                 self.qdrant_client.create_collection(
                     collection_name=self.config.collection_name,
-                    vectors_config=VectorParams(
-                        size=self.config.embedding_dimensions, distance=Distance.COSINE
-                    ),
+                    # vectors_config=VectorParams(
+                    #     size=self.config.embedding_dimensions, distance=Distance.COSINE
+                    # ),
+                    vectors_config={
+                        VectorNames.DENSE.value: VectorParams(
+                            size=self.config.embedding_dimensions,
+                            distance=Distance.COSINE,
+                        )
+                    },
                 )
             print(f"Collection {self.config.collection_name} created")
         else:
@@ -180,6 +186,7 @@ class Ingestor:
                 client=self.qdrant_client,
                 collection_name=self.config.collection_name,
                 embedding=self.embeddings,
+                vector_name=VectorNames.DENSE.value,
             )
 
         for doc in docs:

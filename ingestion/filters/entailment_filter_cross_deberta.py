@@ -116,8 +116,17 @@ The Strategy Pattern defines a family of algorithms, encapsulates each one, and 
     **The Observer Pattern** defines a one-to-many dependency between objects so that when one object changes state, all of its dependents are notified and updated automatically.
     """
 
+    topic_4 = """
+The key point of difference to all other branches of marketing, is that the social marketer’s goals relate to the wellbeing of the community, whereas for all others, the marketer’s goals relate to the wellbeing of the marketer.
+    """
+
+    s6 = """
+    - What are the major differences between commercial marketing and social marketing?
+    - How does social marketing differ from cause marketing?
+    """
+
     # tokens = tokenizer.encode(topic_3 + s4, add_special_tokens=False)
     # print(len(tokens))
 
-    ret, _ = is_paragraph_supports_topic(topic_3, s5)
+    ret, _ = is_paragraph_supports_topic(topic_4, s6)
     print(ret)

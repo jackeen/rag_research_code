@@ -70,6 +70,8 @@ query_pattern = (
 
 query_memory = """When working memory is full"""
 
+query_q = "major differences between commercial"
+
 
 def dense_query(q: str):
     res = client.query_points(
@@ -90,7 +92,7 @@ def dense_query(q: str):
 def hybrid_query(q: str):
     sparse_emb = sparse_embedding(q)
     res = client.query_points(
-        collection_name="p_exp_3_md_multi_layer_pg_6",
+        collection_name="p_exp_3_md_multi_layer_pg_8_tmp",
         prefetch=[
             models.Prefetch(query=embedding(q), using="text_dense_vector", limit=20),
             models.Prefetch(
@@ -119,7 +121,7 @@ if __name__ == "__main__":
     # dense_query(query)
     #
 
-    hybrid_query(query_memory)
+    hybrid_query(query_q)
 
     # x = """
     # Since its release in 1995, JavaScript has gone through many changes. At first, it made adding interactive elements to web pages much simpler. Then it got more robust with DHTML and AJAX. Now, with Node.js, JavaScript has become a language that is used to build full-stack applications. The committee that is and has been in charge of shep‐ herding the changes to JavaScript is the European Computer Manufacturers Associa‐ tion (ECMA).

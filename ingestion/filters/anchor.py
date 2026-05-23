@@ -17,8 +17,8 @@ from qdrant_client import QdrantClient, models
 
 # from .checker_llm_information import is_usefull_information
 # from ingestion.converters.code_block_inline import CodeTag
-from .classifier_llm_core_point import is_transitional
-from .cleaner_llm_transitional_part import remove_transitional_part
+# from .classifier_llm_core_point import is_transitional
+# from .cleaner_llm_transitional_part import remove_transitional_part
 from .entailment_filter_cross_deberta import is_paragraph_supports_topic
 
 
@@ -420,9 +420,12 @@ class AnchorSelector:
                 if ParagraphType.LIST.value in code_types:
                     print(f"-- treating list page: {page.replace('\n', '')[0:100]}...")
                     is_ok = self._is_associated(topic, page)
+                    # is_ok, _ = is_paragraph_supports_topic(topic, page[0:1200])
                     if is_ok:
                         self._page_list_chunks.append(page)
-                        print(f"-- got list page: {page.replace('\n', '')[0:100]}...")
+                        print(
+                            f"-- got list page ({len(page)}): {page.replace('\n', '')[0:100]}..."
+                        )
                     continue
                 elif ParagraphType.BLOCK_CODE.value in code_types:
                     if is_drop_code:
@@ -432,10 +435,11 @@ class AnchorSelector:
                             f"-- treating code page: {page.replace('\n', '')[0:100]}..."
                         )
                         is_ok = self._is_associated(topic, page)
+                        # is_ok, _ = is_paragraph_supports_topic(topic, page[0:1200])
                         if is_ok:
                             self._page_code_chunks.append(page)
                             print(
-                                f"-- got code page: {page.replace('\n', '')[0:100]}..."
+                                f"-- got code page ({len(page)}): {page.replace('\n', '')[0:100]}..."
                             )
                         continue
 

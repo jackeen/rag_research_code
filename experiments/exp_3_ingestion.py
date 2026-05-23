@@ -885,6 +885,7 @@ def extended_exp(book_n: int):
 
 
 if __name__ == "__main__":
+    pass
     # in practice, the topic is manitained by manager for limiting the chat area
     # in experiment stage, the standard answers (groundtruth) is used as topic
     # to prepare keywords, just need to run once

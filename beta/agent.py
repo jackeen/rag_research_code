@@ -197,7 +197,7 @@ def prompt_generate_without_llm_knowledge() -> ChatPromptTemplate:
     - Use ONLY the information provided in the [Context]
     - DO NOT use any external knowledge or prior training data
     - DO NOT infer, assume, or expand beyond what is explicitly stated
-    - If the answer cannot be directly derived from the Context, respond with: I don't know
+    - If the answer cannot be directly derived from the Context, respond with: I don't know.
     - Keep the answer concise and do not add explanations
     - Use simple and natural language.
 
