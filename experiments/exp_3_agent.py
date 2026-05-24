@@ -29,6 +29,15 @@ def test_agent_based_on_entity_filter(
         retrieve_top_k=topk,
         retrieve_similarity=score_limit,
     )
+    # AgentConfigChoseModel.chose_ollama_llm_model(
+    #     config=agent_config, model_name=sys_config.OLLAMA_GRANITE_MODEL_4_3B_H
+    # )
+    # AgentConfigChoseModel.chose_ollama_embedding(
+    #     config=agent_config,
+    #     model_name=sys_config.OLLAMA_GRANITE_EMBEDDING_MODEL_768,
+    #     dimensions=sys_config.OLLAMA_GRANITE_EMBEDDING_MODEL_DIMENSIONS,
+    # )
+
     AgentConfigChoseModel.chose_ollama_llm_model(
         config=agent_config, model_name=sys_config.OLLAMA_GEMMA_MODEL_4_E2B
     )
@@ -42,22 +51,6 @@ def test_agent_based_on_entity_filter(
     agent.use_ollama_llm()
     agent.use_ollama_embeddings()
     agent.generate_work_flow()
-
-    # df = pd.read_csv(str(get_csv_data_path("questions_and_answers")))
-    # questions_df = df["three_asking_ways"]
-    # answers_df = df["standard_answers"]
-
-    # the range of index is [), left one is inclusive start, right one is exclusive end
-    # responsive web 30:60
-    # 42:60
-    # questions = questions_df[30:60].tolist()
-    # std_answers = answers_df[30:60].ffill().tolist()
-
-    # for std_answer in std_answers:
-    #     print(std_answer)
-
-    # load pre-extracted keywords
-    # g_kw = load_extracted_entities()
 
     agent_answers: list[str] = []
     retrieved_docs: list[str] = []
@@ -80,15 +73,6 @@ def test_agent_based_on_entity_filter(
         np.std(similarity_list).round(4),
     )
 
-    # filter the do not know answer's score
-    # similarity_list_without_no_answer = list(filter(lambda v: v > 0.1, similarity_list))
-    # print("mean, media, std just without do not know")
-    # print(
-    #     np.mean(similarity_list_without_no_answer).round(4),
-    #     np.median(similarity_list_without_no_answer).round(4),
-    #     np.std(similarity_list_without_no_answer).round(4),
-    # )
-
     result_df = pd.DataFrame(
         {
             "question": questions,
@@ -103,35 +87,138 @@ def test_agent_based_on_entity_filter(
 
 
 def exploring_qa():
-    std_collection = "exp_3_std_answer"
-
-    # experimental collections based on entity match filter
-    fixed_chunking_collection = "exp_3_entity"
-    keywords_1_filtered_collection = "exp_3_entity_filtered"
-    keywords_2_filtered_collection = "exp_3_entity_filtered_2"
-
-    # based on header splitter
-    md_collection = "exp_3_md"
-
-    # refined by llm
-    md_collection_llm_refined = "exp_3_md_llm_refined"
-    md_collection_multi_layer_refined = "exp_3_md_multi_layer_refined"
 
     print("---------------------------")
     print(datetime.now().isoformat())
     print("---------------------------")
 
-    print("Under 20 chunks")
+    q_list, a_list = load_questions_answers("questions_and_answers", 30, 60)
+
+    # print("fixed chunking under 8 chunks")
     # test_agent_based_on_entity_filter(
-    #     c_name=md_collection_multi_layer_refined, topk=20, book_i=2
+    #     c_name=CollectionNames.FIX_CHUNKING.value,
+    #     questions=q_list,
+    #     std_answers=a_list,
+    #     topk=8,
+    # )
+    # print("fixed chunking under 4 chunks")
+    # test_agent_based_on_entity_filter(
+    #     c_name=CollectionNames.FIX_CHUNKING.value,
+    #     questions=q_list,
+    #     std_answers=a_list,
+    #     topk=4,
     # )
 
-    # print("----")
-
-    print("Under 4 chunks")
+    # print("under 8 chunks")
     # test_agent_based_on_entity_filter(
-    #     c_name=md_collection_multi_layer_refined, topk=4, book_i=2
+    #     c_name=CollectionNames.FIX_CHUNKING_1_KEYWORD.value,
+    #     questions=q_list,
+    #     std_answers=a_list,
+    #     topk=8,
     # )
+    # print("under 4 chunks")
+    # test_agent_based_on_entity_filter(
+    #     c_name=CollectionNames.FIX_CHUNKING_1_KEYWORD.value,
+    #     questions=q_list,
+    #     std_answers=a_list,
+    #     topk=4,
+    # )
+
+    # print("under 8 chunks")
+    # test_agent_based_on_entity_filter(
+    #     c_name=CollectionNames.FIX_CHUNKING_2_KEYWORDS.value,
+    #     questions=q_list,
+    #     std_answers=a_list,
+    #     topk=8,
+    # )
+    # print("under 4 chunks")
+    # test_agent_based_on_entity_filter(
+    #     c_name=CollectionNames.FIX_CHUNKING_2_KEYWORDS.value,
+    #     questions=q_list,
+    #     std_answers=a_list,
+    #     topk=4,
+    # )
+
+    # print("under 8 chunks")
+    # test_agent_based_on_entity_filter(
+    #     c_name=CollectionNames.MD_HEAD_CHUNKING.value,
+    #     questions=q_list,
+    #     std_answers=a_list,
+    #     topk=8,
+    # )
+    # print("under 4 chunks")
+    # test_agent_based_on_entity_filter(
+    #     c_name=CollectionNames.MD_HEAD_CHUNKING.value,
+    #     questions=q_list,
+    #     std_answers=a_list,
+    #     topk=4,
+    # )
+
+    # print("under 8 chunks")
+    # test_agent_based_on_entity_filter(
+    #     c_name=CollectionNames.MD_HEAD_CHUNKING_LLM.value,
+    #     questions=q_list,
+    #     std_answers=a_list,
+    #     topk=8,
+    # )
+    # print("under 4 chunks")
+    # test_agent_based_on_entity_filter(
+    #     c_name=CollectionNames.MD_HEAD_CHUNKING_LLM.value,
+    #     questions=q_list,
+    #     std_answers=a_list,
+    #     topk=4,
+    # )
+
+    # print("under 8 chunks")
+    # test_agent_based_on_entity_filter(
+    #     c_name=CollectionNames.MD_HEAD_CHUNKING.value,
+    #     questions=q_list,
+    #     std_answers=a_list,
+    #     is_hybrid=True,
+    #     topk=8,
+    # )
+    # print("under 4 chunks")
+    # test_agent_based_on_entity_filter(
+    #     c_name=CollectionNames.MD_HEAD_CHUNKING.value,
+    #     questions=q_list,
+    #     std_answers=a_list,
+    #     is_hybrid=True,
+    #     topk=4,
+    # )
+
+    # print("under 8 chunks")
+    # test_agent_based_on_entity_filter(
+    #     c_name=CollectionNames.MD_HEAD_CHUNKING_ML_PAGE.value,
+    #     questions=q_list,
+    #     std_answers=a_list,
+    #     is_hybrid=True,
+    #     topk=8,
+    # )
+    # print("under 4 chunks")
+    # test_agent_based_on_entity_filter(
+    #     c_name=CollectionNames.MD_HEAD_CHUNKING_ML_PAGE.value,
+    #     questions=q_list,
+    #     std_answers=a_list,
+    #     is_hybrid=True,
+    #     topk=4,
+    # )
+
+    print("under 8 chunks")
+    test_agent_based_on_entity_filter(
+        c_name=CollectionNames.MD_HEAD_CHUNKING_ML_PARAGRAPH_GEMMA.value,
+        questions=q_list,
+        std_answers=a_list,
+        is_hybrid=True,
+        topk=8,
+    )
+    print("under 4 chunks")
+    test_agent_based_on_entity_filter(
+        c_name=CollectionNames.MD_HEAD_CHUNKING_ML_PARAGRAPH_GEMMA.value,
+        questions=q_list,
+        std_answers=a_list,
+        is_hybrid=True,
+        topk=4,
+    )
 
 
 def extended_qa(
@@ -294,7 +381,7 @@ if __name__ == "__main__":
     print(datetime.now().isoformat())
     print("---------------------------")
 
-    # exploring_qa()
+    exploring_qa()
 
     # extended_exp(1)
     # extended_exp(2)
