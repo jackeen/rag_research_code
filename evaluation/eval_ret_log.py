@@ -191,10 +191,8 @@ def append_summary(target_file, data_dict):
         writer.writerow(data_dict)
 
 
-if __name__ == "__main__":
-    pass
-
-    sub_path = "z_multilayer_111-888"
+def eval_multilayer_ret():
+    sub_path = "z_multilayer"
 
     result_log_names_0 = [
         # "slim_exp_3_ret_20260523_092204_0",
@@ -227,9 +225,9 @@ if __name__ == "__main__":
         # "slim_exp_3_ret_20260523_111132_3",
         # "slim_exp_3_ret_20260523_111818_3",
         # "slim_exp_3_ret_20260523_112218_3",
-        "slim_exp_3_ret_20260523_111233_3_filter",
-        "slim_exp_3_ret_20260523_111922_3_filter",
-        "slim_exp_3_ret_20260523_112320_3_filter",
+        # "slim_exp_3_ret_20260523_111233_3_filter",
+        # "slim_exp_3_ret_20260523_111922_3_filter",
+        # "slim_exp_3_ret_20260523_112320_3_filter",
     ]
 
     result_log_names_4 = [
@@ -253,3 +251,39 @@ if __name__ == "__main__":
     for ret_log_name in result_log_names_5:
         eval_log_name = evaluate_log(f"{sub_path}/{ret_log_name}", 5, "Y")
         print(eval_log_name)
+
+
+def caculate_summary_avg():
+    summary_path = get_no_tail_csv_log_path("summary_multilayer")
+    df = pd.read_csv(summary_path)
+
+    group = df.groupby(df.index // 3)
+    not_calculate_cols = ["book_index", "filter", "question_n"]
+    metric_cols = [c for c in df.columns if c not in not_calculate_cols]
+
+    # generate the aggregate rule based all columns
+    aggregate_rule = {c: "first" for c in not_calculate_cols}
+    aggregate_rule.update({c: "mean" for c in metric_cols})
+
+    result_df = group.agg(aggregate_rule).round(4)
+
+    # rerange the columns, based on two dimensions generation and contexts
+    # pd will follow the cols to do it
+    rerange_metric_cols = [
+        "similarity_mean",
+        "similarity_median",
+        "faithfulness_mean",
+        "faithfulness_median",
+        "context_precision_mean",
+        "context_precision_median",
+        "context_recall_mean",
+        "context_recall_median",
+    ]
+    result_df = result_df[not_calculate_cols + rerange_metric_cols]
+
+    result_df.to_csv(get_no_tail_csv_log_path("summary_multilayer_avg"))
+
+
+if __name__ == "__main__":
+    pass
+    caculate_summary_avg()
