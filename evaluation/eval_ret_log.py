@@ -253,8 +253,23 @@ def eval_multilayer_ret():
         print(eval_log_name)
 
 
+def eval_baseline_ret():
+    sub_path = "z_baseline"
+    result_log_names = [
+        # "baseline_ret_0_20260522_180413",
+        # "baseline_ret_1_20260522_180439",
+        # "baseline_ret_2_20260522_180503",
+        # "baseline_ret_3_20260522_180533",
+        # "baseline_ret_4_20260522_180604",
+        # "baseline_ret_5_20260522_180640",
+    ]
+    for ret_log_name in result_log_names:
+        eval_log_name = evaluate_log(f"{sub_path}/{ret_log_name}", 1, "Y")
+        print(eval_log_name)
+
+
 def caculate_summary_avg():
-    summary_path = get_no_tail_csv_log_path("summary_multilayer")
+    summary_path = get_no_tail_csv_log_path("summary")
     df = pd.read_csv(summary_path)
 
     group = df.groupby(df.index // 3)
@@ -281,9 +296,37 @@ def caculate_summary_avg():
     ]
     result_df = result_df[not_calculate_cols + rerange_metric_cols]
 
-    result_df.to_csv(get_no_tail_csv_log_path("summary_multilayer_avg"))
+    result_df.to_csv(
+        get_no_tail_csv_log_path("summary_avg"),
+        encoding="utf-8",
+        index=False,
+    )
+
+
+def caculate_avg_percentage():
+    summary_avg_path = get_no_tail_csv_log_path("summary")
+    df = pd.read_csv(summary_avg_path)
+    not_calculate_cols = ["book_index", "filter", "question_n"]
+    metric_cols = [c for c in df.columns if c not in not_calculate_cols]
+
+    n = df[df["filter"] == "N"].set_index("book_index")[metric_cols]
+    y = df[df["filter"] == "Y"].set_index("book_index")[metric_cols]
+
+    n.to_csv(get_no_tail_csv_log_path("n"))
+    y.to_csv(get_no_tail_csv_log_path("y"))
+
+    percentage_df = ((y - n) / n * 100).round(2)
+    percentage_df = percentage_df.reset_index()
+
+    percentage_df.to_csv(
+        get_no_tail_csv_log_path("summary_percentage_Y_vs_N"),
+        encoding="utf-8",
+        index=False,
+    )
 
 
 if __name__ == "__main__":
     pass
-    caculate_summary_avg()
+    # eval_baseline_ret()
+    # caculate_summary_avg()
+    caculate_avg_percentage()
