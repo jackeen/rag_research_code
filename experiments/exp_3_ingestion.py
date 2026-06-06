@@ -583,11 +583,19 @@ def exploring_ingestion_piplines():
     # )
 
     # chunk_pipline.load_chunks_from_cache_cvs(FIXED_CHUNKS_KW_SCORE).filter_keywords(
+    #     limit=3
+    # ).ingest(
+    #     embedding_name=sys_config.OLLAMA_GRANITE_EMBEDDING_MODEL_768,
+    #     embedding_dim=sys_config.OLLAMA_GRANITE_EMBEDDING_MODEL_DIMENSIONS,
+    #     collection_name=CollectionNames.FIX_CHUNKING_3_KEYWORDS.value,
+    # )
+
+    # chunk_pipline.load_chunks_from_cache_cvs(FIXED_CHUNKS_KW_SCORE).filter_keywords(
     #     limit=6
     # ).ingest(
     #     embedding_name=sys_config.OLLAMA_GRANITE_EMBEDDING_MODEL_768,
     #     embedding_dim=sys_config.OLLAMA_GRANITE_EMBEDDING_MODEL_DIMENSIONS,
-    #     collection_name=CollectionNames.FIX_CHUNKING_2_KEYWORDS.value,
+    #     collection_name=CollectionNames.FIX_CHUNKING_6_KEYWORDS.value,
     # )
 
     ### Second stage: semantic filter
@@ -623,14 +631,14 @@ def exploring_ingestion_piplines():
     # so the query embedding should follow it
     # this stage started use hybrid
 
-    # chunk_pipline.load_chunks_from_md(
-    #     PageGroupNames.RESPONSIVE_WEB_DESIGN_2.value
-    # ).ingest(
-    #     is_hybrid=True,
-    #     embedding_name=sys_config.OLLAMA_GRANITE_EMBEDDING_MODEL_768,
-    #     embedding_dim=sys_config.OLLAMA_GRANITE_EMBEDDING_MODEL_DIMENSIONS,
-    #     collection_name=CollectionNames.MD_HEAD_CHUNKING.value,
-    # )
+    chunk_pipline.load_chunks_from_md(
+        PageGroupNames.RESPONSIVE_WEB_DESIGN_2.value
+    ).ingest(
+        is_hybrid=True,
+        embedding_name=sys_config.OLLAMA_GRANITE_EMBEDDING_MODEL_768,
+        embedding_dim=sys_config.OLLAMA_GRANITE_EMBEDDING_MODEL_DIMENSIONS,
+        collection_name=CollectionNames.MD_HEAD_CHUNKING.value,
+    )
 
     # std_answers = load_group_2_standard_answers()
     # chunk_pipline.refine_chunks_from_db(
@@ -681,24 +689,6 @@ def exploring_ingestion_piplines():
         embedding_dim=sys_config.OLLAMA_GEMMA_EMBEDDING_MODEL_DIMENSIONS,
         collection_name=CollectionNames.MD_HEAD_CHUNKING.value,
     )
-
-    # chunk_pipline.refine_chunks_from_db(
-    #     base_topics=std_answers,
-    #     level=1,
-    #     is_skip_code_paragraph=False,
-    #     semantic_module=SemanticModules.LLM,
-    #     collection_name=CollectionNames.MD_HEAD_CHUNKING.value,
-    #     pages_per_topic=8,
-    #     pages_threshold=0.0,
-    #     llm_name=sys_config.OLLAMA_GEMMA_MODEL_4_E2B,
-    #     embedding_model=sys_config.OLLAMA_GEMMA_EMBEDDING_MODEL_768,
-    #     sparse_embedding_model=sys_config.SPARES_PP_EN_v1,
-    # ).ingest(
-    #     is_hybrid=True,
-    #     embedding_name=sys_config.OLLAMA_GEMMA_EMBEDDING_MODEL_768,
-    #     embedding_dim=sys_config.OLLAMA_GEMMA_EMBEDDING_MODEL_DIMENSIONS,
-    #     collection_name=CollectionNames.MD_HEAD_CHUNKING_ML_PARAGRAPH_GEMMA.value,
-    # )
 
     chunk_pipline.refine_chunks_from_db(
         base_topics=std_answers,

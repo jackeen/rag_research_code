@@ -191,6 +191,156 @@ def append_summary(target_file, data_dict):
         writer.writerow(data_dict)
 
 
+def evaluate_explore_log(csv_name: str, feature: str) -> str:
+    """Score the experiment by its log file and return the log file name, which includes score details"""
+    log_file_path = get_no_tail_csv_log_path(csv_name)
+    df = pd.read_csv(log_file_path)
+
+    df_skip = df.iloc[3:12]
+    df = pd.concat([df.iloc[0:3], df.iloc[12:30]])
+    print(df_skip["similarity"].to_list())
+
+    questions = df["question"].tolist()
+    standard_answers = df["std_answers"].tolist()
+    answers = df["answers"].tolist()
+    similarities = df["similarity"].to_list()
+    retrieves = df["retrieve"].tolist()
+    retrieved_chunks: list[list[str]] = []
+
+    for raw_retrieve in retrieves:
+        retrieved_chunks.append(extract_retrieved_chunks(raw_retrieve))
+
+    data_dict = {
+        "question": questions,
+        "ground_truth": standard_answers,
+        "answer": answers,
+        "contexts": retrieved_chunks,
+    }
+    data_set = Dataset.from_dict(data_dict)
+
+    judge_llm = llm_factory(model=sys_config.OPEN_AI_MODEL)
+
+    metrics = cast(
+        Sequence[Metric],
+        [
+            ContextPrecision(llm=judge_llm, name="context_precision"),
+            ContextRecall(llm=judge_llm, name="context_recall"),
+            Faithfulness(llm=judge_llm, name="faithfulness"),
+        ],
+    )
+
+    score = evaluate(
+        dataset=data_set,
+        metrics=metrics,
+        run_config=RunConfig(max_workers=2),
+    )
+    score = cast(EvaluationResult, score)
+    result_dataframe = score.to_pandas()
+
+    cp = result_dataframe["context_precision"].dropna().to_list()
+    cr = result_dataframe["context_recall"].dropna().to_list()
+    ff = result_dataframe["faithfulness"].dropna().to_list()
+
+    cp_mean = numpy.around(numpy.array(cp).mean(), decimals=4)
+    cr_mean = numpy.around(numpy.array(cr).mean(), decimals=4)
+    ff_mean = numpy.around(numpy.array(ff).mean(), decimals=4)
+
+    cp_median = numpy.around(numpy.median(numpy.array(cp)), decimals=4)
+    cr_median = numpy.around(numpy.median(numpy.array(cr)), decimals=4)
+    ff_median = numpy.around(numpy.median(numpy.array(ff)), decimals=4)
+
+    # cosine similarity
+    cs_mean = numpy.around(numpy.mean(numpy.array(similarities)), decimals=4)
+    cs_median = numpy.around(numpy.median(numpy.array(similarities)), decimals=4)
+
+    print(f"context_precision: {cp_mean}, {cp_median}")
+    print(f"context_recall: {cr_mean}, {cr_median}")
+    print(f"faithfulness: {ff_mean}, {ff_median}")
+
+    #
+    eval_log_df = pd.DataFrame(
+        {
+            "question": questions,
+            "similarity": similarities,
+            "context_precision": cp,
+            "context_recall": cr,
+            "faithfulness": ff,
+        }
+    )
+
+    result_path = get_csv_log_path("exp_3_eval")
+    eval_log_df.to_csv(result_path, encoding="utf-8", index=True)
+
+    append_explore_summary(
+        "summary_explore",
+        {
+            "feature": feature,
+            "question_n": len(similarities),
+            "similarity_mean": cs_mean,
+            "similarity_median": cs_median,
+            "context_precision_mean": cp_mean,
+            "context_precision_median": cp_median,
+            "context_recall_mean": cr_mean,
+            "context_recall_median": cr_median,
+            "faithfulness_mean": ff_mean,
+            "faithfulness_median": ff_median,
+        },
+    )
+
+    return result_path.stem
+
+
+def append_explore_summary(target_file, data_dict):
+    summary_path = get_no_tail_csv_log_path(target_file)
+    fields = [
+        "feature",
+        "question_n",
+        "similarity_mean",
+        "similarity_median",
+        "context_precision_mean",
+        "context_precision_median",
+        "context_recall_mean",
+        "context_recall_median",
+        "faithfulness_mean",
+        "faithfulness_median",
+    ]
+
+    # this should be at before the open file
+    file_exist = summary_path.is_file()
+
+    with summary_path.open("a", newline="", encoding="utf-8") as f:
+        writer = csv.DictWriter(f, fieldnames=fields, restval="", extrasaction="ignore")
+        if not file_exist:
+            writer.writeheader()
+        writer.writerow(data_dict)
+
+
+def eval_explore_ret():
+    sub_path = "z_explore"
+    result_log_names = [
+        "slim_exp_3_ret_20260524_143518_fixed_100",
+        "slim_exp_3_ret_20260524_165231_fixed_100_1_entity",
+        "slim_exp_3_ret_20260524_170450_fixed_100_3_entity",
+        "slim_exp_3_ret_20260524_171721_fixed_100_6_entity",
+        "slim_exp_3_ret_20260524_180518_md",
+        "slim_exp_3_ret_20260606_163353_mutilayer_4_candidates",
+        "slim_exp_3_ret_20260606_163749_mutilayer_4_candidates",
+        "slim_exp_3_ret_20260606_164213_mutilayer_4_candidates",
+        "slim_exp_3_ret_20260606_170108_mutilayer_8_candidates",
+        "slim_exp_3_ret_20260606_170757_mutilayer_8_candidates",
+        "slim_exp_3_ret_20260606_171042_mutilayer_8_candidates",
+        "slim_exp_3_ret_20260606_173332_mutilayer_8_candidates_gemma",
+        "slim_exp_3_ret_20260606_173511_mutilayer_8_candidates_gemma",
+        "slim_exp_3_ret_20260606_173700_mutilayer_8_candidates_gemma",
+    ]
+
+    for ret_log_name in result_log_names:
+        eval_log_name = evaluate_explore_log(
+            f"{sub_path}/{ret_log_name}", "mutilayer_8_candidates_gemma"
+        )
+        print(eval_log_name)
+
+
 def eval_multilayer_ret():
     sub_path = "z_multilayer"
 
@@ -303,6 +453,45 @@ def caculate_summary_avg():
     )
 
 
+def caculate_explore_summary_avg():
+    summary_path = get_no_tail_csv_log_path("summary_explore")
+    df = pd.read_csv(summary_path)
+
+    # only last 3 need average
+    df = df[5:]
+    df = df.reset_index(drop=True)
+
+    group = df.groupby(df.index // 3)
+    not_calculate_cols = ["feature", "question_n"]
+    metric_cols = [c for c in df.columns if c not in not_calculate_cols]
+
+    # generate the aggregate rule based all columns
+    aggregate_rule = {c: "first" for c in not_calculate_cols}
+    aggregate_rule.update({c: "mean" for c in metric_cols})
+
+    result_df = group.agg(aggregate_rule).round(4)
+
+    # rerange the columns, based on two dimensions generation and contexts
+    # pd will follow the cols to do it
+    rerange_metric_cols = [
+        "similarity_mean",
+        "similarity_median",
+        "faithfulness_mean",
+        "faithfulness_median",
+        "context_precision_mean",
+        "context_precision_median",
+        "context_recall_mean",
+        "context_recall_median",
+    ]
+    result_df = result_df[not_calculate_cols + rerange_metric_cols]
+
+    result_df.to_csv(
+        get_no_tail_csv_log_path("summary_explore_avg"),
+        encoding="utf-8",
+        index=False,
+    )
+
+
 def caculate_avg_percentage():
     summary_avg_path = get_no_tail_csv_log_path("summary")
     df = pd.read_csv(summary_avg_path)
@@ -329,4 +518,7 @@ if __name__ == "__main__":
     pass
     # eval_baseline_ret()
     # caculate_summary_avg()
-    caculate_avg_percentage()
+    # caculate_avg_percentage()
+
+    # eval_explore_ret()
+    caculate_explore_summary_avg()

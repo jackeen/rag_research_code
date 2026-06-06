@@ -7,7 +7,8 @@ class CollectionNames(Enum):
     # proved the keyword filter is not useful, and fixed chunk break semantic structure
     FIX_CHUNKING = "p_exp_3_entity"
     FIX_CHUNKING_1_KEYWORD = "p_exp_3_entity_filtered"
-    FIX_CHUNKING_2_KEYWORDS = "p_exp_3_entity_filtered_2"
+    FIX_CHUNKING_3_KEYWORDS = "p_exp_3_entity_filtered_3"
+    FIX_CHUNKING_6_KEYWORDS = "p_exp_3_entity_filtered_6"
 
     # keep the semantic structure by md sections and LLM semantic filter
     MD_HEAD_CHUNKING = "p_exp_3_md"
