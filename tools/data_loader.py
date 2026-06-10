@@ -120,6 +120,11 @@ def get_time_stamp_string() -> str:
     return datetime.now().strftime("%Y%m%d_%H%M%S")
 
 
+def get_csv_log_dir(sub_path: str) -> Path:
+    p_name = f"logs/{sub_path}"
+    return Path(__file__).parent.parent.absolute().joinpath(p_name)
+
+
 def get_csv_log_path(csv_name: str) -> Path:
     file_name = f"logs/{csv_name}_{get_time_stamp_string()}.csv"
     return Path(__file__).parent.parent.absolute().joinpath(file_name)
